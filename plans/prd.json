@@ -283,7 +283,8 @@
       "id": "T-021",
       "title": "report/render.py — per-subgraph report",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/report/render.py renders a per-subgraph report: id, PU score + percentile, exit path(s) to heuristic licit endpoint type, typology + confidence, structural evidence (degree/Gini/flow), LLM rationale, and a false-positive caveat block",
         "tests/test_render.py asserts all required fields including the caveat block on a synthetic candidate",
