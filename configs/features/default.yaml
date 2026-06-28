@@ -1,0 +1,13 @@
+# Stage 1 feature-engineering knobs (plan.md sec 4 + Stage 1).
+#
+# The 43 node / 95 edge feature columns are anonymized ordinals, so the indices
+# that stand in for weight / timestamp / cluster size are configurable and must be
+# calibrated on the real distributions (Resolved decision #3).
+name: default
+weight_index: 0
+timestamp_index: 1
+size_index: 2
+edge_agg_indices: [0, 1, 2]
+# Neighbor-label-fraction propagation depth (leakage-masked; plan.md sec 7a).
+hops: [1, 2]
+empty_value: 0.0

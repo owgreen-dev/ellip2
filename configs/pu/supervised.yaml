@@ -1,0 +1,11 @@
+# DEFAULT framing: imbalanced SUPERVISED subgraph classification (Resolved
+# decision #2 / plan.md Stage 2) — reliable licit = negatives, weighted BCE,
+# PR-AUC model selection. This is the apples-to-apples RevClassify_DS comparator.
+name: supervised
+framing: supervised
+loss: weighted_bce
+pos_weight: 10.0
+epochs: 80
+lr: 0.001
+batch_size: 512
+model_selection: pr_auc

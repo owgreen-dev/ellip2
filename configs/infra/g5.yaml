@@ -1,0 +1,9 @@
+# EC2 g5.xlarge (24GB A10G) spot training + S3 checkpoint/resume (plan.md sec 5).
+name: g5
+instance_type: g5.xlarge
+spot: true
+region: us-east-1
+s3_bucket: ellip2-checkpoints
+s3_prefix: runs
+# SIGTERM/IMDS spot handler cadence (plan.md Recommendations).
+checkpoint_interval_min: 10

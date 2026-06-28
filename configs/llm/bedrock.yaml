@@ -1,0 +1,16 @@
+# Bedrock Converse typology layer (plan.md sec 8). model_id is just a configurable
+# string here — it is NEVER invoked by the offline test gate (SIGN-101).
+name: bedrock
+provider: bedrock
+model_id: anthropic.claude-sonnet-4-6
+region: us-east-1
+max_tokens: 1024
+temperature: 0.0
+# Deterministic serialization size budget for the Converse payload.
+max_serialize_bytes: 16000
+n_bins: 10
+typologies:
+  - peeling_chain
+  - nested_service
+  - layering_smurfing
+  - consolidation

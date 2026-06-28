@@ -12,7 +12,8 @@
       "id": "T-001",
       "title": "features/degree.py — per-cluster degree features",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-27",
       "acceptanceCriteria": [
         "src/ellip2/features/degree.py computes in_degree, out_degree, total_degree, in_out_ratio per cluster from edge_index (the Stage 0 (2,E) int32 array)",
         "Returns a per-cluster table sized N_nodes; isolated nodes get degree 0",
@@ -25,7 +26,8 @@
       "id": "T-002",
       "title": "features/edge_aggs.py — per-cluster edge-feature aggregates",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-27",
       "acceptanceCriteria": [
         "src/ellip2/features/edge_aggs.py computes sum/mean/max/std of edge features per cluster, separately for in-edges and out-edges",
         "Driven by DuckDB group-by over background_edges joined via id_map (out-of-core, no pandas), or over a provided edge-feature array in the test",
@@ -38,7 +40,8 @@
       "id": "T-003",
       "title": "features/flow_concentration.py — Gini/HHI/max-counterparty",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/flow_concentration.py computes per cluster the Gini and HHI of incoming and outgoing edge weights, plus max-single-counterparty share",
         "tests/test_flow_concentration.py asserts Gini/HHI vs hand-computed values (equal weights -> Gini 0; one dominant -> near 1)",
@@ -50,7 +53,8 @@
       "id": "T-004",
       "title": "features/neighborhood.py — leakage-masked neighbor label fractions",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/neighborhood.py computes 1-hop and 2-hop neighbor label fractions (licit/suspicious/unknown) per cluster via scipy.sparse propagation",
         "Leakage mask EXCLUDES the cluster's own subgraph label and EXCLUDES TEST-split subgraph labels (consume the persisted split from ellip2.eval.splits)",
@@ -63,7 +67,8 @@
       "id": "T-005",
       "title": "features/temporal.py — activity span & burstiness",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/temporal.py computes activity span and a burstiness measure per cluster from edge timestamps",
         "tests/test_temporal.py asserts span and burstiness on a synthetic timestamp sequence with a known answer",
@@ -75,7 +80,8 @@
       "id": "T-006",
       "title": "features/path_role.py — source/sink (endpoint) heuristic",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/path_role.py scores each cluster on a source-vs-sink / exchange-like axis from degree + cluster size + throughput",
         "Output is clearly labeled a DERIVED heuristic, not a ground-truth entity type",
@@ -88,7 +94,8 @@
       "id": "T-007",
       "title": "features/build.py + scripts/build_features.py — assemble cluster_features.parquet",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/build.py joins all per-feature tables (T-001..T-006) into one per-cluster frame and writes cluster_features.parquet (one row per cluster idx)",
         "scripts/build_features.py is a thin CLI over the ingest artifacts dir",
@@ -101,7 +108,8 @@
       "id": "T-008",
       "title": "graph/pyg_data.py — homogeneous PyG Data from memmaps",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/graph/pyg_data.py builds a torch_geometric.data.Data (single node type, single edge type) from edge_index.npy + node_features.npy plus subgraph membership accessors",
         "Loads arrays via numpy memmap (mmap_mode='r')",
@@ -114,7 +122,8 @@
       "id": "T-009",
       "title": "pu/nnpu_loss.py — non-negative PU risk (Kiryo 2017)",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/pu/nnpu_loss.py implements R = pi_p*E_P[l+] + max(0, E_U[l-] - pi_p*E_P[l-]); configurable prior and surrogate loss; returns a torch scalar with grad",
         "tests/test_nnpu_loss.py asserts the risk vs a hand value on toy logits AND asserts the non-negative clamp engages when the unbiased term goes negative",
@@ -126,7 +135,8 @@
       "id": "T-010",
       "title": "pu/prior_estimation.py — class-prior estimation + sweep",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/pu/prior_estimation.py implements at least one mixture-proportion estimator (KM2 or TIcE) plus a sweep-grid helper (e.g. 1e-1..1e-5)",
         "tests/test_prior_estimation.py builds a synthetic P/U mixture with a KNOWN prior and asserts recovery within tolerance; asserts the sweep grid is well-formed",
@@ -138,7 +148,8 @@
       "id": "T-011",
       "title": "pu/encoder.py — heterophily-tolerant GNN encoder",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/pu/encoder.py defines a GraphSAGE/GIN-style encoder separating ego vs neighbor aggregation; CPU forward on a tiny PyG graph",
         "tests/test_encoder.py asserts output embedding shape and differentiability (loss.backward populates grads)",
@@ -150,7 +161,8 @@
       "id": "T-012",
       "title": "graph/neighbor_sampling.py — NeighborLoader wrapper",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/graph/neighbor_sampling.py wraps NeighborLoader with configurable num_neighbors (default [15,10]) and batch size",
         "tests/test_neighbor_sampling.py samples a tiny graph and asserts batches have expected seeds and respect fanout caps",
@@ -162,7 +174,8 @@
       "id": "T-013",
       "title": "pu/trainer.py — supervised subgraph baseline + nnPU head + max-pool",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/pu/trainer.py trains (a) DEFAULT supervised subgraph model: DeepSets(senders) + DeepSets(receivers) + pooled internal node/edge feats -> MLP with weighted BCE; and (b) optional cluster-level nnPU head",
         "Provides max-pool of cluster scores -> subgraph score (MIL: bag positive iff >=1 positive member)",
@@ -176,7 +189,8 @@
       "id": "T-014",
       "title": "eval/pu_metrics.py — PR-AUC, F1, recall, Lee&Liu PU metric",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/eval/pu_metrics.py implements PR-AUC, binary F1 on the suspicious class, recall on held-out positives, and Lee&Liu recall^2 / Pr(predicted positive)",
         "tests/test_pu_metrics.py asserts each metric vs hand-computed values on small score/label vectors",
@@ -188,7 +202,8 @@
       "id": "T-015",
       "title": "eval/leakage_checks.py — leakage invariant assertions",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/eval/leakage_checks.py asserts: no test-split subgraph label in any training feature; prior/training/recall positive splits are disjoint; background features do not encode subgraph membership",
         "tests/test_leakage_checks.py constructs a clean case (passes) and a leaky case (raises) for each invariant",
@@ -200,7 +215,8 @@
       "id": "T-016",
       "title": "exit_paths/path_search.py — bounded reachability (backward+forward BFS)",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/exit_paths/path_search.py runs backward multi-source BFS from an endpoint set on the transposed adjacency (scipy.sparse boolean SpMV) AND forward BFS from candidate sources, each with per-level frontier caps and hubs excluded from pass-through; intersects within k<=6",
         "Returns candidate->endpoint reachability (NOT full path enumeration); optional induced-subgraph extraction on survivors",
@@ -213,7 +229,8 @@
       "id": "T-017",
       "title": "scripts/discover.py — rank candidates with corroboration",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "scripts/discover.py wires top-percentile PU scores -> path_search exit paths -> corroboration filter (high score AND valid <=6-hop exit path AND typology signal) -> ranked candidates",
         "tests/test_discover.py runs the pipeline on synthetic scores+graph and asserts only corroborated candidates above the percentile threshold are returned, ranked",
@@ -225,7 +242,8 @@
       "id": "T-018",
       "title": "llm/serialize_subgraph.py — compact JSON serialization",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/llm/serialize_subgraph.py serializes a candidate subgraph to compact JSON: nodes (role + binned features), directed edges (weight/volume/timestamp), exit path(s), degree/Gini/flow stats, PU score",
         "Enforces a configurable size budget deterministically",
@@ -238,7 +256,8 @@
       "id": "T-019",
       "title": "llm/bedrock_client.py — Converse wrapper (injectable client)",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/llm/bedrock_client.py wraps Bedrock Converse; the boto3 client is INJECTABLE so tests pass a stub — NO real network, NO real AWS creds",
         "Parses a Converse response into {typology, confidence, rationale, evidence}",
@@ -251,7 +270,8 @@
       "id": "T-020",
       "title": "llm/typology_graph.py — LangGraph agent (mock LLM node)",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/llm/typology_graph.py builds a LangGraph state machine: serialize -> classify (injectable LLM node) -> validate (rule-based vs structural signals) -> report",
         "tests/test_typology_graph.py runs the graph end-to-end with a MOCK LLM node and asserts state transitions and that rule-based validation can override/flag a contradicted typology",
@@ -263,7 +283,8 @@
       "id": "T-021",
       "title": "report/render.py — per-subgraph report",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/report/render.py renders a per-subgraph report: id, PU score + percentile, exit path(s) to heuristic licit endpoint type, typology + confidence, structural evidence (degree/Gini/flow), LLM rationale, and a false-positive caveat block",
         "tests/test_render.py asserts all required fields including the caveat block on a synthetic candidate",
@@ -275,7 +296,8 @@
       "id": "T-022",
       "title": "configs/ — Hydra config tree",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "configs/ contains composable Hydra groups dataset/, features/, pu/, gnn/, llm/, infra/ with sane defaults",
         "tests/test_configs.py loads/composes the configs and asserts key fields resolve (or validates YAML loads + required keys if hydra is not added)",

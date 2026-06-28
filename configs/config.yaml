@@ -1,0 +1,22 @@
+# Top-level Hydra composition root for the ellip2 pipeline (plan.md sec 6).
+#
+# Composes one option from each group (dataset/, features/, pu/, gnn/, llm/,
+# infra/) into the run config. CLI overrides follow Hydra conventions, e.g.
+#   ellip2-train pu=nnpu gnn.hidden_channels=128 infra.spot=false
+#
+# hydra-core/omegaconf are NOT required by the offline CPU test gate: the configs
+# are plain YAML with a `defaults` list, so they load with PyYAML and compose
+# without restructuring once hydra is added to the GPU/dev image.
+defaults:
+  - dataset: elliptic2
+  - features: default
+  - pu: supervised
+  - gnn: graphsage
+  - llm: bedrock
+  - infra: g5
+  - _self_
+
+# Run-level scalars (overlaid after group composition).
+seed: 42
+run_name: ellip2-baseline
+artifacts_dir: data/artifacts
