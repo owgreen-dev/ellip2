@@ -12,7 +12,8 @@
       "id": "T-001",
       "title": "features/degree.py — per-cluster degree features",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-27",
       "acceptanceCriteria": [
         "src/ellip2/features/degree.py computes in_degree, out_degree, total_degree, in_out_ratio per cluster from edge_index (the Stage 0 (2,E) int32 array)",
         "Returns a per-cluster table sized N_nodes; isolated nodes get degree 0",

@@ -37,3 +37,5 @@ learned; keep it short and high-signal.
 ## Iteration notes
 
 <!-- Append: [T-00X] one line on what was built, key decision, any gotcha. -->
+
+- [T-001] `features/degree.py`: `compute_degree_features(edge_index, n_nodes, *, zero_denom_value=0.0)` → dict of (N,) arrays keyed by `COLUMNS = (in_degree, out_degree, total_degree, in_out_ratio)`. Pure-numpy `bincount` (row0=src→out_degree, row1=dst→in_degree). **Convention to reuse:** feature modules return `dict[str, np.ndarray]` (column→(N,) array) + a `COLUMNS` tuple, so T-007 can join by name. `in_out_ratio` is undefined when out_degree==0 → filled with `zero_denom_value` (default 0.0, finite, no NaN/inf) — kept distinct from a *genuine* 0.0 ratio (in=0,out>0). Tests use a hand-counted 6-node digraph (pure sink + isolated node) and assert the zero-denom fill vs genuine-zero separately. Int cols are int64, ratio float64.
