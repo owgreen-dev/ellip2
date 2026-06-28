@@ -94,7 +94,8 @@
       "id": "T-007",
       "title": "features/build.py + scripts/build_features.py — assemble cluster_features.parquet",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/build.py joins all per-feature tables (T-001..T-006) into one per-cluster frame and writes cluster_features.parquet (one row per cluster idx)",
         "scripts/build_features.py is a thin CLI over the ingest artifacts dir",
