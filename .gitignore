@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# Data artifacts (large; never commit)
+artifacts/
+*.npy
+*.parquet
+_duckdb_tmp/
+
+# Ralph loop local state (not committed)
+.claude/ralph-*.local.*
+.claude/settings.local.json
+scripts/ralph/runs/
+
+# OS
+.DS_Store

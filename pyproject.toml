@@ -1,0 +1,77 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ellip2"
+version = "0.1.0"
+description = "Bitcoin AML research on Elliptic2 via subgraph-level detection + cluster-level PU learning"
+requires-python = ">=3.11"
+# Core data-plane deps (Stage 0 ingest + Stage 1 features). CPU-only, no CUDA.
+dependencies = [
+    "duckdb>=1.1",
+    "numpy>=1.26",
+    "pyarrow>=16",
+]
+
+[project.optional-dependencies]
+# GPU stack (Stages 2-3) installs inside the Docker image only. PyG companion
+# wheels MUST come from the matching torch+CUDA index, NOT PyPI, or you get CUDA
+# symbol errors (plan.md §"Known gotchas"). On the image, after installing torch:
+#   pip install torch-scatter torch-sparse torch-cluster \
+#       -f https://data.pyg.org/whl/torch-2.5.0+cu124.html
+gpu = [
+    "torch==2.5.0",
+    "torch-geometric>=2.5",
+]
+# Dev/test superset: everything the local CPU test gate (pytest+ruff+mypy) must import.
+# torch here is the CPU build (no CUDA) — the GPU stack stays in the Docker image via
+# the `gpu` extra + PyG companion wheels. This extra is what the Ralph loop runs against.
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "torch>=2.2",            # CPU wheel locally; tests must run GPU-free
+    "torch-geometric>=2.5",
+    "scipy>=1.13",
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "boto3>=1.34",
+]
+
+[project.scripts]
+ellip2-ingest = "ellip2.data.ingest:main"
+ellip2-make-split = "ellip2.eval.splits_cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ellip2"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests favor terse fixtures; relax a few rules there.
+"tests/**" = ["E501", "B011"]
+
+[tool.mypy]
+# Lenient by design: this gates autonomously-written code, so it must flag real
+# breakage without stalling on third-party stubs. Not --strict.
+python_version = "3.12"
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+disallow_untyped_defs = false
+check_untyped_defs = true
+exclude = ["tests/"]
+
+[[tool.mypy.overrides]]
+module = ["duckdb.*", "pyarrow.*", "torch.*", "torch_geometric.*", "scipy.*", "langgraph.*", "langchain_core.*", "boto3.*"]
+ignore_missing_imports = true
