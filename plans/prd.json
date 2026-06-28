@@ -202,7 +202,8 @@
       "id": "T-015",
       "title": "eval/leakage_checks.py — leakage invariant assertions",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/eval/leakage_checks.py asserts: no test-split subgraph label in any training feature; prior/training/recall positive splits are disjoint; background features do not encode subgraph membership",
         "tests/test_leakage_checks.py constructs a clean case (passes) and a leaky case (raises) for each invariant",
