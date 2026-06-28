@@ -40,7 +40,8 @@
       "id": "T-003",
       "title": "features/flow_concentration.py — Gini/HHI/max-counterparty",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/flow_concentration.py computes per cluster the Gini and HHI of incoming and outgoing edge weights, plus max-single-counterparty share",
         "tests/test_flow_concentration.py asserts Gini/HHI vs hand-computed values (equal weights -> Gini 0; one dominant -> near 1)",
