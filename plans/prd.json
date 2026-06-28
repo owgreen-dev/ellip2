@@ -161,7 +161,8 @@
       "id": "T-012",
       "title": "graph/neighbor_sampling.py — NeighborLoader wrapper",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/graph/neighbor_sampling.py wraps NeighborLoader with configurable num_neighbors (default [15,10]) and batch size",
         "tests/test_neighbor_sampling.py samples a tiny graph and asserts batches have expected seeds and respect fanout caps",
