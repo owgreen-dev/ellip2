@@ -189,7 +189,8 @@
       "id": "T-014",
       "title": "eval/pu_metrics.py — PR-AUC, F1, recall, Lee&Liu PU metric",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/eval/pu_metrics.py implements PR-AUC, binary F1 on the suspicious class, recall on held-out positives, and Lee&Liu recall^2 / Pr(predicted positive)",
         "tests/test_pu_metrics.py asserts each metric vs hand-computed values on small score/label vectors",
