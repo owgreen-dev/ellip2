@@ -80,7 +80,8 @@
       "id": "T-006",
       "title": "features/path_role.py — source/sink (endpoint) heuristic",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/path_role.py scores each cluster on a source-vs-sink / exchange-like axis from degree + cluster size + throughput",
         "Output is clearly labeled a DERIVED heuristic, not a ground-truth entity type",
