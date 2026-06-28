@@ -135,7 +135,8 @@
       "id": "T-010",
       "title": "pu/prior_estimation.py — class-prior estimation + sweep",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/pu/prior_estimation.py implements at least one mixture-proportion estimator (KM2 or TIcE) plus a sweep-grid helper (e.g. 1e-1..1e-5)",
         "tests/test_prior_estimation.py builds a synthetic P/U mixture with a KNOWN prior and asserts recovery within tolerance; asserts the sweep grid is well-formed",
