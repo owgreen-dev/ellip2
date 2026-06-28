@@ -67,7 +67,8 @@
       "id": "T-005",
       "title": "features/temporal.py — activity span & burstiness",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/temporal.py computes activity span and a burstiness measure per cluster from edge timestamps",
         "tests/test_temporal.py asserts span and burstiness on a synthetic timestamp sequence with a known answer",
