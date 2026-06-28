@@ -174,7 +174,8 @@
       "id": "T-013",
       "title": "pu/trainer.py — supervised subgraph baseline + nnPU head + max-pool",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/pu/trainer.py trains (a) DEFAULT supervised subgraph model: DeepSets(senders) + DeepSets(receivers) + pooled internal node/edge feats -> MLP with weighted BCE; and (b) optional cluster-level nnPU head",
         "Provides max-pool of cluster scores -> subgraph score (MIL: bag positive iff >=1 positive member)",
