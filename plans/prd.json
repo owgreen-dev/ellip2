@@ -256,7 +256,8 @@
       "id": "T-019",
       "title": "llm/bedrock_client.py — Converse wrapper (injectable client)",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/llm/bedrock_client.py wraps Bedrock Converse; the boto3 client is INJECTABLE so tests pass a stub — NO real network, NO real AWS creds",
         "Parses a Converse response into {typology, confidence, rationale, evidence}",
