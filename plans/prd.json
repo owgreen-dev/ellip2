@@ -53,7 +53,8 @@
       "id": "T-004",
       "title": "features/neighborhood.py — leakage-masked neighbor label fractions",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/features/neighborhood.py computes 1-hop and 2-hop neighbor label fractions (licit/suspicious/unknown) per cluster via scipy.sparse propagation",
         "Leakage mask EXCLUDES the cluster's own subgraph label and EXCLUDES TEST-split subgraph labels (consume the persisted split from ellip2.eval.splits)",
