@@ -215,7 +215,8 @@
       "id": "T-016",
       "title": "exit_paths/path_search.py — bounded reachability (backward+forward BFS)",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/exit_paths/path_search.py runs backward multi-source BFS from an endpoint set on the transposed adjacency (scipy.sparse boolean SpMV) AND forward BFS from candidate sources, each with per-level frontier caps and hubs excluded from pass-through; intersects within k<=6",
         "Returns candidate->endpoint reachability (NOT full path enumeration); optional induced-subgraph extraction on survivors",
