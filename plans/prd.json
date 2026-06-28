@@ -26,7 +26,8 @@
       "id": "T-002",
       "title": "features/edge_aggs.py — per-cluster edge-feature aggregates",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-27",
       "acceptanceCriteria": [
         "src/ellip2/features/edge_aggs.py computes sum/mean/max/std of edge features per cluster, separately for in-edges and out-edges",
         "Driven by DuckDB group-by over background_edges joined via id_map (out-of-core, no pandas), or over a provided edge-feature array in the test",
