@@ -229,7 +229,8 @@
       "id": "T-017",
       "title": "scripts/discover.py — rank candidates with corroboration",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "scripts/discover.py wires top-percentile PU scores -> path_search exit paths -> corroboration filter (high score AND valid <=6-hop exit path AND typology signal) -> ranked candidates",
         "tests/test_discover.py runs the pipeline on synthetic scores+graph and asserts only corroborated candidates above the percentile threshold are returned, ranked",
