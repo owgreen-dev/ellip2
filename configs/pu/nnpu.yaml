@@ -1,0 +1,14 @@
+# OPTIONAL framing: cluster-level non-negative PU (Kiryo 2017 / plan.md sec 2).
+#
+# pi_p is the small CLUSTER-level prior (~1e-3), NOT the 2.27% subgraph rate;
+# sweep 1e-1..1e-5 in both directions because heterophily biases it upward.
+name: nnpu
+framing: nnpu
+prior: 0.001
+beta: 0.0
+gamma: 1.0
+prior_sweep: [0.1, 0.01, 0.001, 0.0001, 0.00001]
+epochs: 100
+lr: 0.001
+batch_size: 512
+model_selection: lee_liu

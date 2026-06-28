@@ -1,0 +1,14 @@
+# Elliptic2 dataset shape + artifact locations (plan.md Key Findings 1, Table 1).
+name: elliptic2
+n_nodes: 49299864
+n_edges: 196215606
+n_node_features: 43
+n_edge_features: 95
+n_subgraphs: 121810
+n_suspicious: 2763
+n_licit: 119047
+# 2,763 / 121,810 — the SUBGRAPH base rate, NOT a cluster-level PU prior.
+subgraph_base_rate: 0.0227
+raw_dir: data/raw
+artifacts_dir: data/artifacts
+split_csv: data/splits/split.csv

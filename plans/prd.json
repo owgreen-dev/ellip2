@@ -296,7 +296,8 @@
       "id": "T-022",
       "title": "configs/ — Hydra config tree",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "configs/ contains composable Hydra groups dataset/, features/, pu/, gnn/, llm/, infra/ with sane defaults",
         "tests/test_configs.py loads/composes the configs and asserts key fields resolve (or validates YAML loads + required keys if hydra is not added)",

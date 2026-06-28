@@ -1,0 +1,16 @@
+# Heterophily-tolerant encoder + neighbor sampling (plan.md sec 2c / sec 3).
+#
+# Separate ego vs neighbor aggregation (avoid pure-GCN smoothing); sample only
+# the candidate set via NeighborLoader, never a full-graph GNN.
+name: graphsage
+encoder: ego_neighbor
+in_channels: 43
+hidden_channels: 64
+out_channels: 32
+num_layers: 2
+dropout: 0.0
+aggr: mean
+normalize: false
+# NeighborLoader fanout per hop and seed batch size.
+num_neighbors: [15, 10]
+batch_size: 512
