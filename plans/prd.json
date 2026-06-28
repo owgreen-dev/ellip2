@@ -1,0 +1,305 @@
+{
+  "repo": "local/ellip2",
+  "branchName": "ralph/pipeline",
+  "verifyCommand": "bash scripts/verify.sh",
+  "acceptanceCriteria": [
+    "bash scripts/verify.sh passes (pytest + ruff + mypy via .venv)",
+    "All non-skipped features have passes: true"
+  ],
+  "notes": "ellip2 Bitcoin/Elliptic2 AML pipeline. Master spec = plan.md (esp. 'Resolved design decisions', repo layout sec 6, pipeline sec 9). Rules = plans/guardrails.md. Each feature: create the module under src/ellip2/<pkg>/ (add __init__.py if new), write a synthetic/CPU/mocked test tests/test_<name>.py (follow tests/test_ingest.py), keep ruff+mypy clean. Dependency-ordered; high=Stage1, medium=Stage2, low=Stage3/LLM/config. NO GitHub: commit as 'feat: [T-00X] desc' with no Fixes #N.",
+  "features": [
+    {
+      "id": "T-001",
+      "title": "features/degree.py — per-cluster degree features",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/features/degree.py computes in_degree, out_degree, total_degree, in_out_ratio per cluster from edge_index (the Stage 0 (2,E) int32 array)",
+        "Returns a per-cluster table sized N_nodes; isolated nodes get degree 0",
+        "tests/test_degree.py builds a tiny hand-counted directed graph and asserts exact degree values and the in_out_ratio convention for zero denominators",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 4 (Degree). Use numpy bincount over edge_index rows (no pandas). Define in_out_ratio for out_degree==0 explicitly and test it. Establish the features/ package + test idiom here."
+    },
+    {
+      "id": "T-002",
+      "title": "features/edge_aggs.py — per-cluster edge-feature aggregates",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/features/edge_aggs.py computes sum/mean/max/std of edge features per cluster, separately for in-edges and out-edges",
+        "Driven by DuckDB group-by over background_edges joined via id_map (out-of-core, no pandas), or over a provided edge-feature array in the test",
+        "tests/test_edge_aggs.py asserts aggregates vs hand-computed values on a tiny synthetic edge table",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 4 (Edge-feature aggregates). Keep the DuckDB streaming pattern from ingest.py. 95 anonymized edge feature columns — accept configurable indices, default to first few for the test."
+    },
+    {
+      "id": "T-003",
+      "title": "features/flow_concentration.py — Gini/HHI/max-counterparty",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/features/flow_concentration.py computes per cluster the Gini and HHI of incoming and outgoing edge weights, plus max-single-counterparty share",
+        "tests/test_flow_concentration.py asserts Gini/HHI vs hand-computed values (equal weights -> Gini 0; one dominant -> near 1)",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 4 (Flow concentration). Surfaces peeling-chain structure. Pure-numpy Gini; document the formula."
+    },
+    {
+      "id": "T-004",
+      "title": "features/neighborhood.py — leakage-masked neighbor label fractions",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/features/neighborhood.py computes 1-hop and 2-hop neighbor label fractions (licit/suspicious/unknown) per cluster via scipy.sparse propagation",
+        "Leakage mask EXCLUDES the cluster's own subgraph label and EXCLUDES TEST-split subgraph labels (consume the persisted split from ellip2.eval.splits)",
+        "tests/test_neighborhood.py asserts fractions on a tiny graph AND asserts the leakage invariants (own-label and test-split labels never leak)",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 4 + sec 7. SIGN-103 mandatory. Build adjacency as scipy.sparse from edge_index; propagate label indicator vectors. The leakage test is the key assertion."
+    },
+    {
+      "id": "T-005",
+      "title": "features/temporal.py — activity span & burstiness",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/features/temporal.py computes activity span and a burstiness measure per cluster from edge timestamps",
+        "tests/test_temporal.py asserts span and burstiness on a synthetic timestamp sequence with a known answer",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 4 (Temporal). Burstiness B=(sigma-mu)/(sigma+mu) of inter-event times is a fine testable choice — document it."
+    },
+    {
+      "id": "T-006",
+      "title": "features/path_role.py — source/sink (endpoint) heuristic",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/features/path_role.py scores each cluster on a source-vs-sink / exchange-like axis from degree + cluster size + throughput",
+        "Output is clearly labeled a DERIVED heuristic, not a ground-truth entity type",
+        "tests/test_path_role.py asserts high-in-degree+large-size clusters score endpoint/exchange-like and low ones do not, on synthetic inputs",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md Resolved decision #3 + sec 4. This is the 'licit endpoint' heuristic used by Stage 3. Monotone, documented; calibrate by percentile."
+    },
+    {
+      "id": "T-007",
+      "title": "features/build.py + scripts/build_features.py — assemble cluster_features.parquet",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/features/build.py joins all per-feature tables (T-001..T-006) into one per-cluster frame and writes cluster_features.parquet (one row per cluster idx)",
+        "scripts/build_features.py is a thin CLI over the ingest artifacts dir",
+        "tests/test_build_features.py runs full assembly on the tiny synthetic ingest output and asserts combined schema + row count == N_nodes + no NaNs in required columns",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 9 Stage 1. Reuse the Stage 0 synthetic-CSV fixtures (import helpers from tests/test_ingest.py) to produce artifacts, then build features over them. Depends on T-001..T-006."
+    },
+    {
+      "id": "T-008",
+      "title": "graph/pyg_data.py — homogeneous PyG Data from memmaps",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/graph/pyg_data.py builds a torch_geometric.data.Data (single node type, single edge type) from edge_index.npy + node_features.npy plus subgraph membership accessors",
+        "Loads arrays via numpy memmap (mmap_mode='r')",
+        "tests/test_pyg_data.py asserts Data.x shape (N,43), edge_index shape (2,E) dtype long, and a subgraph's member indices round-trip",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 3. CPU torch. Homogeneous Data, NOT HeteroData. Full-graph GNN out of scope."
+    },
+    {
+      "id": "T-009",
+      "title": "pu/nnpu_loss.py — non-negative PU risk (Kiryo 2017)",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/pu/nnpu_loss.py implements R = pi_p*E_P[l+] + max(0, E_U[l-] - pi_p*E_P[l-]); configurable prior and surrogate loss; returns a torch scalar with grad",
+        "tests/test_nnpu_loss.py asserts the risk vs a hand value on toy logits AND asserts the non-negative clamp engages when the unbiased term goes negative",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 2; arXiv:1703.00593. CPU torch. Pure deterministic function — make the clamp explicit in a test."
+    },
+    {
+      "id": "T-010",
+      "title": "pu/prior_estimation.py — class-prior estimation + sweep",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/pu/prior_estimation.py implements at least one mixture-proportion estimator (KM2 or TIcE) plus a sweep-grid helper (e.g. 1e-1..1e-5)",
+        "tests/test_prior_estimation.py builds a synthetic P/U mixture with a KNOWN prior and asserts recovery within tolerance; asserts the sweep grid is well-formed",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md Resolved decision #2. pi_p is the CLUSTER-level prior (small), NOT the 2.27% subgraph base rate."
+    },
+    {
+      "id": "T-011",
+      "title": "pu/encoder.py — heterophily-tolerant GNN encoder",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/pu/encoder.py defines a GraphSAGE/GIN-style encoder separating ego vs neighbor aggregation; CPU forward on a tiny PyG graph",
+        "tests/test_encoder.py asserts output embedding shape and differentiability (loss.backward populates grads)",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 2/3. Avoid pure-GCN smoothing; include ego features. Small + CPU-runnable."
+    },
+    {
+      "id": "T-012",
+      "title": "graph/neighbor_sampling.py — NeighborLoader wrapper",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/graph/neighbor_sampling.py wraps NeighborLoader with configurable num_neighbors (default [15,10]) and batch size",
+        "tests/test_neighbor_sampling.py samples a tiny graph and asserts batches have expected seeds and respect fanout caps",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 3. Sample only the candidate set, never a full-graph GNN. CPU."
+    },
+    {
+      "id": "T-013",
+      "title": "pu/trainer.py — supervised subgraph baseline + nnPU head + max-pool",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/pu/trainer.py trains (a) DEFAULT supervised subgraph model: DeepSets(senders) + DeepSets(receivers) + pooled internal node/edge feats -> MLP with weighted BCE; and (b) optional cluster-level nnPU head",
+        "Provides max-pool of cluster scores -> subgraph score (MIL: bag positive iff >=1 positive member)",
+        "Checkpoint save/load round-trips (model+optimizer)",
+        "tests/test_trainer.py CPU smoke-trains a few steps on synthetic data, asserts loss decreases, checkpoint round-trips, and cluster->subgraph max-pool matches a hand example",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md Resolved decisions #1 and #2 + sec 4 (border-set = RevClassify insight). Subgraph = supervised by default; nnPU = cluster-level option. CPU smoke test only — no GPU/real data/S3. Depends on T-008/T-009/T-011."
+    },
+    {
+      "id": "T-014",
+      "title": "eval/pu_metrics.py — PR-AUC, F1, recall, Lee&Liu PU metric",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/eval/pu_metrics.py implements PR-AUC, binary F1 on the suspicious class, recall on held-out positives, and Lee&Liu recall^2 / Pr(predicted positive)",
+        "tests/test_pu_metrics.py asserts each metric vs hand-computed values on small score/label vectors",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 7. Reporting metrics vs RevClassify (name the table when quoting). Deterministic + testable."
+    },
+    {
+      "id": "T-015",
+      "title": "eval/leakage_checks.py — leakage invariant assertions",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/eval/leakage_checks.py asserts: no test-split subgraph label in any training feature; prior/training/recall positive splits are disjoint; background features do not encode subgraph membership",
+        "tests/test_leakage_checks.py constructs a clean case (passes) and a leaky case (raises) for each invariant",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 7; pairs with SIGN-103. Reusable guards the feature/training tasks call."
+    },
+    {
+      "id": "T-016",
+      "title": "exit_paths/path_search.py — bounded reachability (backward+forward BFS)",
+      "priority": "low",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/exit_paths/path_search.py runs backward multi-source BFS from an endpoint set on the transposed adjacency (scipy.sparse boolean SpMV) AND forward BFS from candidate sources, each with per-level frontier caps and hubs excluded from pass-through; intersects within k<=6",
+        "Returns candidate->endpoint reachability (NOT full path enumeration); optional induced-subgraph extraction on survivors",
+        "tests/test_path_search.py asserts on a tiny graph: correct reachable set within k hops, frontier cap respected, hub not used as transit (stopped at), and backward∩forward correctness",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md Resolved decision #4 + sec 3. Reachability not enumeration. Endpoints from T-006 heuristic. Pure scipy.sparse — CPU, no cuGraph for the test."
+    },
+    {
+      "id": "T-017",
+      "title": "scripts/discover.py — rank candidates with corroboration",
+      "priority": "low",
+      "passes": false,
+      "acceptanceCriteria": [
+        "scripts/discover.py wires top-percentile PU scores -> path_search exit paths -> corroboration filter (high score AND valid <=6-hop exit path AND typology signal) -> ranked candidates",
+        "tests/test_discover.py runs the pipeline on synthetic scores+graph and asserts only corroborated candidates above the percentile threshold are returned, ranked",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 9 Stage 3 + sec 7 (RevFilter corroboration; Hit-Rate/NDCG-style ranking). Depends on T-016 and scores."
+    },
+    {
+      "id": "T-018",
+      "title": "llm/serialize_subgraph.py — compact JSON serialization",
+      "priority": "low",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/llm/serialize_subgraph.py serializes a candidate subgraph to compact JSON: nodes (role + binned features), directed edges (weight/volume/timestamp), exit path(s), degree/Gini/flow stats, PU score",
+        "Enforces a configurable size budget deterministically",
+        "tests/test_serialize_subgraph.py asserts schema, determinism, and that the size budget is respected",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 8. Pure function, no network. Determinism is the key testable property."
+    },
+    {
+      "id": "T-019",
+      "title": "llm/bedrock_client.py — Converse wrapper (injectable client)",
+      "priority": "low",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/llm/bedrock_client.py wraps Bedrock Converse; the boto3 client is INJECTABLE so tests pass a stub — NO real network, NO real AWS creds",
+        "Parses a Converse response into {typology, confidence, rationale, evidence}",
+        "tests/test_bedrock_client.py injects a stub client returning a canned Converse payload and asserts parsing + that no default boto3 client is constructed in the test",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 8. SIGN-101: never hit the network. Model id is a configurable string; do not call it in tests. claude-api skill is the reference for real Claude/Bedrock model ids (not needed for the mock)."
+    },
+    {
+      "id": "T-020",
+      "title": "llm/typology_graph.py — LangGraph agent (mock LLM node)",
+      "priority": "low",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/llm/typology_graph.py builds a LangGraph state machine: serialize -> classify (injectable LLM node) -> validate (rule-based vs structural signals) -> report",
+        "tests/test_typology_graph.py runs the graph end-to-end with a MOCK LLM node and asserts state transitions and that rule-based validation can override/flag a contradicted typology",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 8. Typologies: peeling chain, nested service, layering/smurfing, consolidation. Mock the LLM; test wiring + validation. Depends on T-018/T-019."
+    },
+    {
+      "id": "T-021",
+      "title": "report/render.py — per-subgraph report",
+      "priority": "low",
+      "passes": false,
+      "acceptanceCriteria": [
+        "src/ellip2/report/render.py renders a per-subgraph report: id, PU score + percentile, exit path(s) to heuristic licit endpoint type, typology + confidence, structural evidence (degree/Gini/flow), LLM rationale, and a false-positive caveat block",
+        "tests/test_render.py asserts all required fields including the caveat block on a synthetic candidate",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 8. The caveat block is mandatory — outputs are investigative leads needing human review."
+    },
+    {
+      "id": "T-022",
+      "title": "configs/ — Hydra config tree",
+      "priority": "low",
+      "passes": false,
+      "acceptanceCriteria": [
+        "configs/ contains composable Hydra groups dataset/, features/, pu/, gnn/, llm/, infra/ with sane defaults",
+        "tests/test_configs.py loads/composes the configs and asserts key fields resolve (or validates YAML loads + required keys if hydra is not added)",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "plan.md sec 6. If adding hydra-core/omegaconf, install via uv into .venv and add to the dev extra. Keep the gate green."
+    },
+    {
+      "id": "T-023",
+      "title": "infra/userdata.sh Stages 1-3 + S3 checkpoint/resume + IMDS spot handler",
+      "priority": "low",
+      "passes": false,
+      "skip": true,
+      "skipReason": "Integration task requiring AWS (EC2/S3/IMDS) — cannot be verified by offline CPU unit tests. Implement manually once the pipeline modules exist.",
+      "notes": "plan.md sec 5. Human/integration pass; not part of the autonomous loop."
+    },
+    {
+      "id": "T-024",
+      "title": "Real-data end-to-end on EC2 g5 + GPU",
+      "priority": "low",
+      "passes": false,
+      "skip": true,
+      "skipReason": "Requires the 26 GB Elliptic2 download and an A10G GPU — out of scope for offline CPU verification.",
+      "notes": "plan.md sec 9. Run after modules are built and Dockerized; validate against RevClassify PR-AUC/F1 on the shipped split."
+    }
+  ]
+}
