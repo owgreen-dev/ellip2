@@ -242,7 +242,8 @@
       "id": "T-018",
       "title": "llm/serialize_subgraph.py — compact JSON serialization",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/llm/serialize_subgraph.py serializes a candidate subgraph to compact JSON: nodes (role + binned features), directed edges (weight/volume/timestamp), exit path(s), degree/Gini/flow stats, PU score",
         "Enforces a configurable size budget deterministically",
