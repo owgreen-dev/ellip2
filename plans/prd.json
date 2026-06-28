@@ -148,7 +148,8 @@
       "id": "T-011",
       "title": "pu/encoder.py — heterophily-tolerant GNN encoder",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/pu/encoder.py defines a GraphSAGE/GIN-style encoder separating ego vs neighbor aggregation; CPU forward on a tiny PyG graph",
         "tests/test_encoder.py asserts output embedding shape and differentiability (loss.backward populates grads)",
