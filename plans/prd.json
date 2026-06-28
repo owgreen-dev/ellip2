@@ -122,7 +122,8 @@
       "id": "T-009",
       "title": "pu/nnpu_loss.py — non-negative PU risk (Kiryo 2017)",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/pu/nnpu_loss.py implements R = pi_p*E_P[l+] + max(0, E_U[l-] - pi_p*E_P[l-]); configurable prior and surrogate loss; returns a torch scalar with grad",
         "tests/test_nnpu_loss.py asserts the risk vs a hand value on toy logits AND asserts the non-negative clamp engages when the unbiased term goes negative",
