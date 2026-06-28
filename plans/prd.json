@@ -270,7 +270,8 @@
       "id": "T-020",
       "title": "llm/typology_graph.py — LangGraph agent (mock LLM node)",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/llm/typology_graph.py builds a LangGraph state machine: serialize -> classify (injectable LLM node) -> validate (rule-based vs structural signals) -> report",
         "tests/test_typology_graph.py runs the graph end-to-end with a MOCK LLM node and asserts state transitions and that rule-based validation can override/flag a contradicted typology",
