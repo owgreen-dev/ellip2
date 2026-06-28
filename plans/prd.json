@@ -108,7 +108,8 @@
       "id": "T-008",
       "title": "graph/pyg_data.py — homogeneous PyG Data from memmaps",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/graph/pyg_data.py builds a torch_geometric.data.Data (single node type, single edge type) from edge_index.npy + node_features.npy plus subgraph membership accessors",
         "Loads arrays via numpy memmap (mmap_mode='r')",
