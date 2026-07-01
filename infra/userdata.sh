@@ -29,6 +29,16 @@ aws ecr get-login-password --region "${REGION}" \
   | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
 docker pull "${IMAGE}"
 
+# The subgraph-level split (one assignment per ccId) is reused by features, train
+# and score; generate it once from connected_components.csv if it is not present.
+SPLIT_CSV="${SPLIT_CSV:-${OUT_DIR}/splits/stratified_random/split.csv}"
+ensure_split() {
+  if [ ! -f "${SPLIT_CSV}" ]; then
+    docker run --rm -v /mnt/ebs:/mnt/ebs --entrypoint ellip2-make-split "${IMAGE}" \
+      --input "${DATA_DIR}/connected_components.csv" --out-dir "${OUT_DIR}/splits"
+  fi
+}
+
 # 3. Run the requested stage. Ingest/features are CPU-only (no --gpus needed);
 #    train/score request the A10G. memory_limit keeps DuckDB under the 16GiB box.
 case "${STAGE}" in
@@ -37,8 +47,35 @@ case "${STAGE}" in
       --raw-dir "${DATA_DIR}" --out-dir "${OUT_DIR}" \
       --memory-limit "${DUCKDB_MEM:-12GB}" --feature-dtype "${FEATURE_DTYPE:-float32}"
     ;;
-  features|train|score)
-    echo "stage '${STAGE}' not yet implemented (Stages 1-3 land next)"; exit 2
+  features)
+    ensure_split
+    docker run --rm -v /mnt/ebs:/mnt/ebs --entrypoint python "${IMAGE}" \
+      scripts/build_features.py \
+        --artifacts-dir "${OUT_DIR}" --raw-dir "${DATA_DIR}" --split-csv "${SPLIT_CSV}"
+    ;;
+  train)
+    ensure_split
+    docker run --rm --gpus all -v /mnt/ebs:/mnt/ebs --entrypoint python "${IMAGE}" \
+      scripts/train.py \
+        --features "${OUT_DIR}/cluster_features.parquet" \
+        --edge-index "${OUT_DIR}/edge_index.npy" \
+        --subgraphs "${OUT_DIR}/subgraphs.parquet" \
+        --split-csv "${SPLIT_CSV}" \
+        --out "${OUT_DIR}/model.pt" \
+        --device "${DEVICE:-cuda}" --epochs "${EPOCHS:-50}" \
+        ${PRIOR:+--prior "${PRIOR}"}
+    ;;
+  score)
+    ensure_split
+    docker run --rm --gpus all -v /mnt/ebs:/mnt/ebs --entrypoint python "${IMAGE}" \
+      scripts/score.py \
+        --model "${OUT_DIR}/model.pt" \
+        --features "${OUT_DIR}/cluster_features.parquet" \
+        --edge-index "${OUT_DIR}/edge_index.npy" \
+        --out "${OUT_DIR}/scores.npy" \
+        --subgraphs "${OUT_DIR}/subgraphs.parquet" \
+        --split-csv "${SPLIT_CSV}" --eval-split "${EVAL_SPLIT:-test}" \
+        --device "${DEVICE:-cuda}"
     ;;
   *)
     echo "unknown STAGE=${STAGE}"; exit 2 ;;
