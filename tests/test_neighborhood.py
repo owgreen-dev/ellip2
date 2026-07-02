@@ -56,6 +56,34 @@ def _features(**kw) -> dict[str, np.ndarray]:
     )
 
 
+def test_hub_exclusion_drops_twohop_through_hub():
+    # Star graph: hub 0 <-> leaves 1,2,3,4. Every leaf pair is 2-hop ONLY via hub 0.
+    #   leaves 1,2 -> sg0 (licit), leaves 3,4 -> sg1 (suspicious); hub 0 = background.
+    ei = np.array([[0, 0, 0, 0], [1, 2, 3, 4]], dtype=np.int64)
+    n = 5
+    ns = np.array([-1, 0, 0, 1, 1], dtype=np.int64)
+    labels = np.array([LICIT, SUSPICIOUS], dtype=np.int64)
+    in_test = np.array([False, False], dtype=bool)
+
+    # Uncapped: leaf 1 reaches suspicious leaves 3,4 at two hops through the hub.
+    full = compute_neighborhood_features(
+        ei, ns, labels, in_test, n, hub_degree_cap=None, empty_value=-1.0
+    )
+    assert full["hop2_frac_suspicious"][1] > 0.0
+
+    # Cap below the hub's degree (4): hub 0 is excluded from BOTH sides, so no
+    # two-hop paths survive -> every node's hop2 neighborhood is empty (fill).
+    capped = compute_neighborhood_features(
+        ei, ns, labels, in_test, n, hub_degree_cap=3, empty_value=-1.0
+    )
+    for i in range(n):
+        assert capped["hop2_frac_licit"][i] == -1.0
+        assert capped["hop2_frac_suspicious"][i] == -1.0
+        assert capped["hop2_frac_unknown"][i] == -1.0
+    # One-hop features are unaffected by the two-hop cap.
+    assert np.allclose(full["hop1_frac_suspicious"], capped["hop1_frac_suspicious"])
+
+
 def test_columns_and_shapes():
     f = _features()
     assert set(f) == set(COLUMNS)

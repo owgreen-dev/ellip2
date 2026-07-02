@@ -52,6 +52,22 @@ SUSPICIOUS = 1
 CLASSES: tuple[str, ...] = ("licit", "suspicious", "unknown")
 DEFAULT_HOPS: tuple[int, ...] = (1, 2)
 
+# Hub-exclusion for the two-hop adjacency. The two-hop sparse matmul (A @ A) costs
+# ~Σ deg(v)² over the whole graph, which a single mega-hub dominates: on real
+# Elliptic2 one exchange cluster has degree ~1.7e7, so the naive product would take
+# weeks. Nodes with degree above this cap are dropped from BOTH sides of the two-hop
+# product — they neither receive nor pass on two-hop signal. That is also the right
+# semantics (a cluster wired to millions of others carries no meaningful
+# "neighborhood"), and mirrors the hub-exclusion already used in exit_paths.
+# `None` disables the cap (small graphs / tests that want the exact product).
+# Set to 100 after measuring the real graph: the two-hop matrix must be
+# materialized, and its nnz grows steeply with the cap (cap=100 -> ~1.1e9 nnz;
+# cap=200 -> ~2.1e9; cap=10000 -> 33e9 / 249GB). scipy's matmul holds several
+# transient copies of the result, so peak RAM is ~3x the final matrix: cap=200
+# OOMed a 64GB box, cap=100 peaks ~40GB. 100 excludes ~0.24% of nodes (the 120k
+# highest-degree hubs) while keeping the product materializable on a 64GB box.
+HUB_DEGREE_CAP: int | None = 100
+
 # Stable column order for the assembled feature frame (T-007 joins on these),
 # matching the default hops.
 COLUMNS: tuple[str, ...] = tuple(
@@ -95,11 +111,27 @@ def _build_adjacency(
     return a
 
 
-def _two_hop(a1: sparse.csr_matrix) -> sparse.csr_matrix:
-    """Boolean adjacency of nodes at shortest distance *exactly* 2."""
-    reach2 = (a1 @ a1) > 0          # length-2 walks: includes diagonal and 1-hop
+def _two_hop(
+    a1: sparse.csr_matrix, *, hub_degree_cap: int | None = HUB_DEGREE_CAP
+) -> sparse.csr_matrix:
+    """Boolean adjacency of nodes at shortest distance *exactly* 2.
+
+    Nodes whose degree exceeds ``hub_degree_cap`` are excluded from the two-hop
+    product (both endpoints), bounding the ``Σ deg²`` cost that a mega-hub would
+    otherwise blow up (see :data:`HUB_DEGREE_CAP`). ``None`` computes the exact,
+    uncapped product.
+    """
+    a = a1
+    if hub_degree_cap is not None:
+        deg = np.asarray(a1.sum(axis=1)).ravel()
+        keep = deg <= hub_degree_cap
+        if not keep.all():
+            # zero the rows AND columns of hub nodes: keep_diag @ A @ keep_diag
+            keep_diag = sparse.diags(keep.astype(np.float64))
+            a = (keep_diag @ a1 @ keep_diag).tocsr()
+    reach2 = (a @ a) > 0           # length-2 walks: includes diagonal and 1-hop
     p = reach2.astype(np.float64).tocsr()
-    p = p - p.multiply(a1)         # drop pairs already adjacent (intersection only)
+    p = p - p.multiply(a)          # drop pairs already adjacent (intersection only)
     p.setdiag(0.0)                 # drop self (v -> u -> v)
     p.eliminate_zeros()
     p.data[:] = 1.0
@@ -127,6 +159,7 @@ def compute_neighborhood_features(
     *,
     hops: Sequence[int] = DEFAULT_HOPS,
     empty_value: float = 0.0,
+    hub_degree_cap: int | None = HUB_DEGREE_CAP,
 ) -> dict[str, npt.NDArray[np.float64]]:
     """Per-cluster, leakage-masked neighbor label fractions.
 
@@ -206,7 +239,7 @@ def compute_neighborhood_features(
 
     adj = {1: a1}
     if 2 in hops:
-        adj[2] = _two_hop(a1)
+        adj[2] = _two_hop(a1, hub_degree_cap=hub_degree_cap)
 
     result: dict[str, npt.NDArray[np.float64]] = {}
     for h in hops:
