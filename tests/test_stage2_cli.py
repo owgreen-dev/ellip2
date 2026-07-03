@@ -150,7 +150,7 @@ def test_train_then_score_end_to_end(tmp_path: Path) -> None:
 
     ckpt = torch.load(str(model_path), map_location="cpu", weights_only=False)
     extra = ckpt["extra"]
-    assert extra["framing"] == "cluster_nnpu"
+    assert extra["framing"] == "cluster_nnpu_minibatch"
     assert extra["in_dim"] == F
     assert extra["feature_columns"] == [f"f{i}" for i in range(F)]
     assert extra["loss_last"] < extra["loss_first"]  # learning happened
