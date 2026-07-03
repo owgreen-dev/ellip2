@@ -34,7 +34,7 @@ import torch
 
 from ellip2.data import schema
 from ellip2.eval.pu_metrics import pu_metric_report
-from ellip2.pu.train import EncoderConfig, build_scorer, iter_seed_batches, load_features
+from ellip2.pu.train import EncoderConfig, SeedBatcher, build_scorer, load_features
 from ellip2.pu.trainer import max_pool_to_subgraph
 
 
@@ -118,13 +118,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     ei_all = torch.from_numpy(np.asarray(edge_index)).long()
     all_seeds = torch.arange(n_nodes, dtype=torch.long)
 
+    batcher = SeedBatcher(
+        x_all, ei_all, all_seeds, num_neighbors=num_neighbors,
+        batch_size=args.batch_size, shuffle=False, device=device,
+    )
     scores = np.zeros(n_nodes, dtype=np.float64)
     done = 0
     with torch.no_grad():
-        for x_b, ei_b, n_id, bs in iter_seed_batches(
-            x_all, ei_all, all_seeds, num_neighbors=num_neighbors,
-            batch_size=args.batch_size, shuffle=False, device=device,
-        ):
+        for x_b, ei_b, n_id, bs in batcher:
             logits = model(x_b, ei_b)[:bs]
             scores[n_id[:bs].numpy()] = torch.sigmoid(logits).cpu().numpy()
             done += bs

@@ -155,51 +155,58 @@ def _sampler_kernels_available() -> bool:
     )
 
 
-def iter_seed_batches(
-    x_all: Tensor,
-    edge_index: Tensor,
-    seeds: Tensor,
-    *,
-    num_neighbors: Sequence[int],
-    batch_size: int,
-    shuffle: bool,
-    device: torch.device,
-) -> Iterator[tuple[Tensor, Tensor, Tensor, int]]:
-    """Yield ``(x_batch, edge_index_batch, n_id, batch_size)`` minibatches.
+class SeedBatcher:
+    """Re-iterable source of ``(x_batch, edge_index_batch, n_id, batch_size)`` minibatches.
 
-    ``x_batch``/``edge_index_batch`` are on ``device``; ``n_id`` (global node idxs,
-    seeds first) stays on CPU for label lookup. Uses PyG ``NeighborLoader`` when the
-    sampler kernels are present, else the pure-torch reference sampler (tiny graphs).
+    Built ONCE over a fixed seed pool — crucially, the PyG ``NeighborLoader`` (which
+    materializes a multi-GB CSC of the whole graph) is constructed a single time and
+    re-iterated each epoch, rather than rebuilt per epoch (which leaked the CSC and
+    OOMed the host). ``x_batch``/``edge_index_batch`` land on ``device``; ``n_id``
+    (global idxs, seeds first) stays on CPU for label lookup. Uses ``NeighborLoader``
+    when the sampler kernels are present, else the pure-torch reference sampler.
     """
-    from torch_geometric.data import Data  # noqa: PLC0415
 
-    from ellip2.graph.neighbor_sampling import (  # noqa: PLC0415
-        NeighborSamplingConfig,
-        build_neighbor_loader,
-        iter_subgraph_batches,
-    )
+    def __init__(
+        self,
+        x_all: Tensor,
+        edge_index: Tensor,
+        seeds: Tensor,
+        *,
+        num_neighbors: Sequence[int],
+        batch_size: int,
+        shuffle: bool,
+        device: torch.device,
+    ) -> None:
+        from torch_geometric.data import Data  # noqa: PLC0415
 
-    cfg = NeighborSamplingConfig(
-        num_neighbors=tuple(num_neighbors), batch_size=batch_size, shuffle=shuffle
-    )
-    data = Data(x=x_all, edge_index=edge_index, num_nodes=x_all.size(0))
-    if _sampler_kernels_available():
-        loader = build_neighbor_loader(data, seeds, cfg)
-        for b in loader:
-            yield (
-                b.x.to(device),
-                b.edge_index.to(device),
-                b.n_id.cpu(),
-                int(b.batch_size),
-            )
-    else:  # CPU fallback (tests / tiny graphs): kernel-free reference sampler
-        for sb in iter_subgraph_batches(data, seeds, cfg):
-            yield (
-                x_all[sb.n_id].to(device),
-                sb.edge_index.to(device),
-                sb.n_id.cpu(),
-                sb.batch_size,
-            )
+        from ellip2.graph.neighbor_sampling import (  # noqa: PLC0415
+            NeighborSamplingConfig,
+            build_neighbor_loader,
+        )
+
+        self._x_all = x_all
+        self._seeds = seeds
+        self._device = device
+        self._cfg = NeighborSamplingConfig(
+            num_neighbors=tuple(num_neighbors), batch_size=batch_size, shuffle=shuffle
+        )
+        self._data = Data(x=x_all, edge_index=edge_index, num_nodes=x_all.size(0))
+        self._use_pyg = _sampler_kernels_available()
+        self._loader = (
+            build_neighbor_loader(self._data, seeds, self._cfg) if self._use_pyg else None
+        )
+
+    def __iter__(self) -> Iterator[tuple[Tensor, Tensor, Tensor, int]]:
+        dev = self._device
+        if self._loader is not None:
+            for b in self._loader:
+                yield b.x.to(dev), b.edge_index.to(dev), b.n_id.cpu(), int(b.batch_size)
+        else:  # CPU fallback (tests / tiny graphs): kernel-free reference sampler
+            from ellip2.graph.neighbor_sampling import iter_subgraph_batches  # noqa: PLC0415
+
+            for sb in iter_subgraph_batches(self._data, self._seeds, self._cfg):
+                x_b = self._x_all[sb.n_id].to(dev)
+                yield x_b, sb.edge_index.to(dev), sb.n_id.cpu(), sb.batch_size
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -287,19 +294,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"fanout={num_neighbors} device={args.device} sampler={'pyg' if kernels else 'fallback'}"
     )
 
+    # Fixed training seed pool (all positives + a balanced unlabeled sample), with
+    # the sampler built ONCE and reshuffled each epoch (shuffle=True) — rebuilding
+    # per epoch leaked the multi-GB CSC and OOMed the host.
+    if n_unl < unl_all.size:
+        unl_ids = rng.choice(unl_all, size=n_unl, replace=False)
+    else:
+        unl_ids = unl_all
+    seeds = torch.from_numpy(np.concatenate([pos_ids, unl_ids])).long()
+    batcher = SeedBatcher(
+        x_all, ei_all, seeds, num_neighbors=num_neighbors,
+        batch_size=args.batch_size, shuffle=True, device=device,
+    )
+
     first_risk = last_risk = float("nan")
     model.train()
     for epoch in range(args.epochs):
-        if n_unl < unl_all.size:
-            unl_ids = rng.choice(unl_all, size=n_unl, replace=False)
-        else:
-            unl_ids = unl_all
-        seeds = torch.from_numpy(np.concatenate([pos_ids, unl_ids])).long()
         risks: list[float] = []
-        for x_b, ei_b, n_id, bs in iter_seed_batches(
-            x_all, ei_all, seeds, num_neighbors=num_neighbors,
-            batch_size=args.batch_size, shuffle=True, device=device,
-        ):
+        for x_b, ei_b, n_id, bs in batcher:
             seed_pos = pos_mask_t[n_id[:bs]].to(device)
             logits = model(x_b, ei_b)[:bs]
             p_logits, u_logits = logits[seed_pos], logits[~seed_pos]
