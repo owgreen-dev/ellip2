@@ -80,6 +80,22 @@ def load_features(path: Path) -> tuple[list[str], np.ndarray]:
     return feature_columns, X
 
 
+def standardize(
+    X: np.ndarray, *, eps: float = 1e-6
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Z-score each feature column → ``(X_std, mean, std)``.
+
+    The cluster features span wildly different scales (degrees up to ~1.7e7 next to
+    [0,1] fractions); feeding those raw into the GNN stalls training. Columns with
+    ~zero variance are left unscaled. ``mean``/``std`` are stored in the checkpoint
+    so :mod:`ellip2.pu.score` applies the identical transform.
+    """
+    mean = X.mean(axis=0)
+    std = X.std(axis=0)
+    safe_std = np.where(std < eps, 1.0, std)
+    return ((X - mean) / safe_std).astype(np.float32), mean, safe_std
+
+
 def _allowed_ccids(split_csv: Path, split_name: str) -> set[str]:
     """ccIds assigned to ``split_name`` in ``split.csv`` (columns ``id,label,split``)."""
     with open(split_csv, newline="") as fh:
@@ -248,6 +264,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     rng = np.random.default_rng(args.seed)
 
     feature_columns, X = load_features(args.features)
+    X, feat_mean, feat_std = standardize(X)
     n_nodes = X.shape[0]
     edge_index = np.load(args.edge_index)
     mask = positive_mask(
@@ -341,6 +358,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "framing": "cluster_nnpu_minibatch",
             "in_dim": X.shape[1],
             "feature_columns": feature_columns,
+            "feat_mean": feat_mean.tolist(),
+            "feat_std": feat_std.tolist(),
             "encoder": asdict(cfg),
             "num_neighbors": list(num_neighbors),
             "prior": float(prior),

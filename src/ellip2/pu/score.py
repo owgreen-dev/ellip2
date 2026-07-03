@@ -109,6 +109,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"(train={len(expected_cols)} cols, now={len(feature_columns)})"
         )
     in_dim = int(extra.get("in_dim", X.shape[1]))
+    # apply the training-time z-score transform (stored in the checkpoint)
+    if extra.get("feat_mean") is not None and extra.get("feat_std") is not None:
+        mean = np.asarray(extra["feat_mean"], dtype=np.float32)
+        std = np.asarray(extra["feat_std"], dtype=np.float32)
+        X = ((X - mean) / std).astype(np.float32)
     num_neighbors = extra.get("num_neighbors") or [15] * cfg.num_layers
     model = build_scorer(in_dim, cfg).to(device)
     model.load_state_dict(ckpt["model_state"])
