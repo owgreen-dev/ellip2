@@ -30,6 +30,13 @@ RUN pip install --no-cache-dir -e .
 # / prebuilt wheels from PyPI — no CUDA-specific index needed.
 RUN pip install --no-cache-dir torch-geometric scipy
 
+# pyg-lib: the neighbor-sampling kernel PyG's NeighborLoader needs for Stage 2
+# minibatch training/scoring (T-012). This is the ONE torch+CUDA-pinned wheel we
+# keep — a matching prebuilt exists for the base's torch 2.8.0 / cu129 / cp312.
+# (Override PYG_WHL_INDEX if you change BASE_IMAGE to a different torch/CUDA.)
+ARG PYG_WHL_INDEX=https://data.pyg.org/whl/torch-2.8.0+cu129.html
+RUN pip install --no-cache-dir pyg-lib -f ${PYG_WHL_INDEX}
+
 COPY scripts ./scripts
 COPY infra ./infra
 
