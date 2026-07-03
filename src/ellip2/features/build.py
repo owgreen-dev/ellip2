@@ -105,6 +105,12 @@ class FeatureBuildConfig:
     hops: tuple[int, ...] = (1, 2)
     positive_label: str = "suspicious"
     empty_value: float = 0.0
+    # DuckDB tuning for the out-of-core edge-aggregate GROUP BY (T-002). Unbounded
+    # by default DuckDB grabs ~80% of RAM and, on the 77GB edge CSV, thrashes a
+    # box with no swap to a standstill — set these like ingest.py does.
+    duckdb_memory_limit: str | None = None
+    duckdb_temp_dir: Path | None = None
+    duckdb_threads: int | None = None
 
 
 @dataclass(frozen=True)
@@ -290,6 +296,9 @@ def build_cluster_features(cfg: FeatureBuildConfig) -> BuildResult:
             feature_indices=list(cfg.edge_agg_indices),
             feature_names=agg_names,
             empty_value=cfg.empty_value,
+            threads=cfg.duckdb_threads,
+            memory_limit=cfg.duckdb_memory_limit,
+            temp_dir=cfg.duckdb_temp_dir,
         )
     )
 
@@ -344,6 +353,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--timestamp-index", type=int, default=0)
     p.add_argument("--size-index", type=int, default=0)
     p.add_argument("--edge-agg-indices", type=int, nargs="*", default=[0, 1, 2])
+    p.add_argument("--memory-limit", default=None,
+                   help="DuckDB memory cap for the edge-aggregate GROUP BY, e.g. '40GB' "
+                        "(unbounded default thrashes a no-swap box on the 77GB edge CSV)")
+    p.add_argument("--temp-dir", type=Path, default=None,
+                   help="DuckDB spill directory (put it on a big disk, e.g. the data volume)")
+    p.add_argument("--threads", type=int, default=None, help="DuckDB thread count")
     args = p.parse_args(argv)
 
     res = build_cluster_features(
@@ -356,6 +371,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             timestamp_index=args.timestamp_index,
             size_index=args.size_index,
             edge_agg_indices=tuple(args.edge_agg_indices),
+            duckdb_memory_limit=args.memory_limit,
+            duckdb_temp_dir=args.temp_dir,
+            duckdb_threads=args.threads,
         )
     )
     print(
