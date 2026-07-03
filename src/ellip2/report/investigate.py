@@ -205,13 +205,21 @@ def investigate(
     return leads
 
 
-def _make_classifier(kind: str) -> Any:
+def _make_classifier(kind: str, *, model_id: str | None, region: str | None) -> Any:
     if kind == "heuristic":
         return heuristic_classifier
     if kind == "bedrock":
-        from ellip2.llm.bedrock_client import BedrockTypologyClient  # noqa: PLC0415
+        from ellip2.llm.bedrock_client import (  # noqa: PLC0415
+            BedrockConfig,
+            BedrockTypologyClient,
+        )
 
-        return BedrockTypologyClient().classify
+        base = BedrockConfig()
+        cfg = BedrockConfig(
+            model_id=model_id or base.model_id,
+            region=region or base.region,
+        )
+        return BedrockTypologyClient(config=cfg).classify
     raise SystemExit(f"unknown --llm {kind!r} (use 'heuristic' or 'bedrock')")
 
 
@@ -230,11 +238,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--max-border", type=int, default=12)
     p.add_argument("--llm", default="heuristic", choices=["heuristic", "bedrock"],
                    help="typology classifier: offline heuristic (default) or Bedrock")
+    p.add_argument("--model-id", default=None,
+                   help="Bedrock model/inference-profile id (default: BedrockConfig default)")
+    p.add_argument("--region", default=None, help="Bedrock region (default: us-east-1)")
     args = p.parse_args(argv)
 
+    classifier = _make_classifier(args.llm, model_id=args.model_id, region=args.region)
     leads = investigate(
         args.border_scores, args.subgraphs, args.edge_index, args.node_features,
-        args.out_dir, classifier=_make_classifier(args.llm),
+        args.out_dir, classifier=classifier,
         split=(args.split or None), top_k=args.top_k, max_border=args.max_border,
     )
     print(f"[investigate] wrote {len(leads)} report cards -> {args.out_dir}/index.md "

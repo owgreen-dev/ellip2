@@ -27,8 +27,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-#: Default Bedrock model id (a configurable string — never invoked in tests).
-DEFAULT_MODEL_ID = "anthropic.claude-sonnet-4-6"
+#: Default Bedrock model id (a configurable string — never invoked in tests). Uses the
+#: cross-region *inference profile* id: the bare foundation-model id
+#: ("anthropic.claude-sonnet-4-6") rejects on-demand Converse and demands a profile.
+DEFAULT_MODEL_ID = "us.anthropic.claude-sonnet-4-6"
 #: Default AWS region for the bedrock-runtime client.
 DEFAULT_REGION = "us-east-1"
 #: The four AML typologies the classifier is asked to choose from (plan.md §8).
