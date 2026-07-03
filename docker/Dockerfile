@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir -e .
 # Runtime deps not provided by the base: torch-geometric (GNN encoder / MessagePassing)
 # and scipy (sparse ops in features/neighborhood + exit_paths/path_search). Pure-Python
 # / prebuilt wheels from PyPI — no CUDA-specific index needed.
-RUN pip install --no-cache-dir torch-geometric scipy scikit-learn
+RUN pip install --no-cache-dir torch-geometric scipy scikit-learn matplotlib networkx
 
 # pyg-lib: the neighbor-sampling kernel PyG's NeighborLoader needs for Stage 2
 # minibatch training/scoring (T-012). This is the ONE torch+CUDA-pinned wheel we

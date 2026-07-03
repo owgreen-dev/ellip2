@@ -24,6 +24,8 @@ gpu = [
     "torch==2.5.0",
     "torch-geometric>=2.5",
     "scikit-learn>=1.4",
+    "matplotlib>=3.7",
+    "networkx>=3.0",
 ]
 # Dev/test superset: everything the local CPU test gate (pytest+ruff+mypy) must import.
 # torch here is the CPU build (no CUDA) — the GPU stack stays in the Docker image via
