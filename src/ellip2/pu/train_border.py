@@ -33,7 +33,9 @@ from ellip2.eval.pu_metrics import pu_metric_report
 from ellip2.pu.border_assembly import (
     build_subgraph_batch,
     extract_border_sets,
+    fit_edge_standardizer,
     fit_node_standardizer,
+    load_internal_edge_features,
 )
 from ellip2.pu.trainer import (
     SupervisedSubgraphModel,
@@ -72,6 +74,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--subgraphs", required=True, type=Path)
     p.add_argument("--split-csv", required=True, type=Path)
     p.add_argument("--out", required=True, type=Path, help="output checkpoint .pt")
+    p.add_argument("--internal-edges", type=Path, default=None,
+                   help="internal_edge_features.parquet (Phase 2 — enables the edge channel)")
     p.add_argument("--train-split", default="train")
     p.add_argument("--eval-split", default="test")
     p.add_argument("--border-cap", type=int, default=64, help="max border nodes/subgraph/side")
@@ -106,7 +110,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     mean, std = fit_node_standardizer(tr, border, node_features)
     device = torch.device(args.device)
     edim = schema.N_EDGE_FEATURES
-    batch = build_subgraph_batch(tr, border, node_features, mean=mean, std=std, edge_dim=edim)
+
+    edge_feats = None
+    edge_mean = edge_std = None
+    if args.internal_edges is not None:
+        edge_feats = load_internal_edge_features(args.internal_edges)
+        edge_mean, edge_std = fit_edge_standardizer(tr, edge_feats)
+        n_edge_rows = sum(int(v.shape[0]) for v in edge_feats.values())
+        print(f"[train_border] internal edges: {n_edge_rows:,} rows over "
+              f"{len(edge_feats):,} subgraphs (edge channel ON)", flush=True)
+
+    batch = build_subgraph_batch(tr, border, node_features, mean=mean, std=std, edge_dim=edim,
+                                 edge_features_by_sg=edge_feats, edge_mean=edge_mean,
+                                 edge_std=edge_std)
     y = torch.from_numpy(labels[tr].astype(np.float32))
 
     model = SupervisedSubgraphModel(
@@ -125,7 +141,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if ev.size:
         eval_batch = build_subgraph_batch(
-            ev, border, node_features, mean=mean, std=std, edge_dim=edim
+            ev, border, node_features, mean=mean, std=std, edge_dim=edim,
+            edge_features_by_sg=edge_feats, edge_mean=edge_mean, edge_std=edge_std,
         )
         model.eval()
         with torch.no_grad():
@@ -148,6 +165,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "mlp_hidden": list(args.mlp_hidden),
             "feat_mean": mean.tolist(),
             "feat_std": std.tolist(),
+            "use_edges": edge_feats is not None,
+            "edge_mean": edge_mean.tolist() if edge_mean is not None else None,
+            "edge_std": edge_std.tolist() if edge_std is not None else None,
         },
     )
     print(f"[train_border] wrote {args.out}")

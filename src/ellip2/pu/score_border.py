@@ -27,7 +27,11 @@ import pyarrow.parquet as pq
 import torch
 
 from ellip2.eval.pu_metrics import pu_metric_report
-from ellip2.pu.border_assembly import build_subgraph_batch, extract_border_sets
+from ellip2.pu.border_assembly import (
+    build_subgraph_batch,
+    extract_border_sets,
+    load_internal_edge_features,
+)
 from ellip2.pu.train_border import load_subgraphs
 from ellip2.pu.trainer import SupervisedSubgraphModel
 
@@ -42,6 +46,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--out", required=True, type=Path, help="output border_scores.parquet")
     p.add_argument("--split-csv", type=Path, default=None)
     p.add_argument("--eval-split", default="test")
+    p.add_argument("--internal-edges", type=Path, default=None,
+                   help="internal_edge_features.parquet (required if the model used edges)")
     p.add_argument("--chunk-size", type=int, default=20_000, help="subgraphs per forward")
     p.add_argument("--device", default="cpu")
     args = p.parse_args(argv)
@@ -65,6 +71,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     std = np.asarray(extra["feat_std"], dtype=np.float32)
     edge_dim = int(extra["edge_dim"])
 
+    edge_feats = None
+    edge_mean = edge_std = None
+    if extra.get("use_edges"):
+        if args.internal_edges is None:
+            raise SystemExit("model was trained with edges; pass --internal-edges")
+        edge_feats = load_internal_edge_features(args.internal_edges)
+        edge_mean = np.asarray(extra["edge_mean"], dtype=np.float32)
+        edge_std = np.asarray(extra["edge_std"], dtype=np.float32)
+
     print(f"[score_border] extracting border (cap={extra['border_cap']}) "
           f"over E={edge_index.shape[1]:,}...", flush=True)
     border = extract_border_sets(edge_index, members, n_nodes, cap=int(extra["border_cap"]))
@@ -75,7 +90,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         for start in range(0, len(ccids), args.chunk_size):
             pos = list(range(start, min(start + args.chunk_size, len(ccids))))
             batch = build_subgraph_batch(
-                pos, border, node_features, mean=mean, std=std, edge_dim=edge_dim
+                pos, border, node_features, mean=mean, std=std, edge_dim=edge_dim,
+                edge_features_by_sg=edge_feats, edge_mean=edge_mean, edge_std=edge_std,
             )
             scores[pos] = torch.sigmoid(model(batch)).cpu().numpy()
 

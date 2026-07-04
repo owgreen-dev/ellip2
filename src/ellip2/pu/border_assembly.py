@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
@@ -116,12 +117,17 @@ def build_subgraph_batch(
     mean: npt.NDArray[np.float32] | None = None,
     std: npt.NDArray[np.float32] | None = None,
     edge_dim: int = 95,
+    edge_features_by_sg: dict[int, npt.NDArray[np.float32]] | None = None,
+    edge_mean: npt.NDArray[np.float32] | None = None,
+    edge_std: npt.NDArray[np.float32] | None = None,
 ) -> SubgraphBatch:
     """Build a :class:`SubgraphBatch` for the subgraphs at ``positions`` (batch order).
 
     Gathers internal-node / sender / receiver 43-d features (one fancy-index each) and tags
-    every row with its position in ``positions``. ``edge_x`` is empty (Phase 1). When
-    ``mean``/``std`` are given the node features are z-scored with them.
+    every row with its position in ``positions``; ``mean``/``std`` z-score the node features.
+    When ``edge_features_by_sg`` is given (Phase 2 — from
+    :mod:`ellip2.features.internal_edges`) the internal 95-d edge features populate ``edge_x``
+    (z-scored by ``edge_mean``/``edge_std``); otherwise ``edge_x`` is empty (Phase 1).
     """
     def collect(sets: list[IdxArray]) -> tuple[IdxArray, IdxArray]:
         idx_parts, bat_parts = [], []
@@ -144,6 +150,22 @@ def build_subgraph_batch(
             x = (x - mean) / std
         return torch.from_numpy(np.ascontiguousarray(x, dtype=np.float32))
 
+    edge_x = torch.zeros((0, edge_dim), dtype=torch.float32)
+    edge_batch = torch.zeros(0, dtype=torch.long)
+    if edge_features_by_sg is not None:
+        e_parts, eb_parts = [], []
+        for bi, pos in enumerate(positions):
+            ef = edge_features_by_sg.get(int(pos))
+            if ef is not None and ef.shape[0]:
+                e_parts.append(ef)
+                eb_parts.append(np.full(ef.shape[0], bi, dtype=np.int64))
+        if e_parts:
+            ex = np.concatenate(e_parts).astype(np.float32)
+            if edge_mean is not None and edge_std is not None:
+                ex = (ex - edge_mean) / edge_std
+            edge_x = torch.from_numpy(np.ascontiguousarray(ex, dtype=np.float32))
+            edge_batch = torch.from_numpy(np.concatenate(eb_parts))
+
     return SubgraphBatch(
         sender_x=feats(s_idx),
         sender_batch=torch.from_numpy(s_bat),
@@ -151,8 +173,8 @@ def build_subgraph_batch(
         receiver_batch=torch.from_numpy(r_bat),
         node_x=feats(n_idx),
         node_batch=torch.from_numpy(n_bat),
-        edge_x=torch.zeros((0, edge_dim), dtype=torch.float32),
-        edge_batch=torch.zeros(0, dtype=torch.long),
+        edge_x=edge_x,
+        edge_batch=edge_batch,
         num_graphs=len(positions),
     )
 
@@ -172,6 +194,53 @@ def fit_node_standardizer(
         f = node_features.shape[1]
         return np.zeros(f, np.float32), np.ones(f, np.float32)
     rows = node_features[np.unique(np.concatenate(idxs))]
+    mean = rows.mean(0).astype(np.float32)
+    std = rows.std(0).astype(np.float32)
+    std[std < 1e-6] = 1.0
+    return mean, std
+
+
+def load_internal_edge_features(
+    parquet_path: str | Path,
+) -> dict[int, npt.NDArray[np.float32]]:
+    """Load ``internal_edge_features.parquet`` → ``{subgraph_position: (E, 95) float32}``.
+
+    Produced by :mod:`ellip2.features.internal_edges`; feeds ``build_subgraph_batch``'s
+    ``edge_features_by_sg`` so the border model's internal-edge channel is populated.
+    """
+    import pyarrow.parquet as pq  # noqa: PLC0415
+
+    table = pq.read_table(parquet_path)
+    sg = table.column("subgraph").to_numpy(zero_copy_only=False).astype(np.int64)
+    feat_cols = [c for c in table.column_names if c.startswith("f")]
+    if not sg.size:
+        return {}
+    feats = np.column_stack(
+        [table.column(c).to_numpy(zero_copy_only=False).astype(np.float32) for c in feat_cols]
+    )
+    out: dict[int, npt.NDArray[np.float32]] = {}
+    order = np.argsort(sg, kind="stable")
+    sg_s, feats_s = sg[order], feats[order]
+    uniq, starts = np.unique(sg_s, return_index=True)
+    bounds = np.append(starts, sg_s.size)
+    for i, g in enumerate(uniq):
+        out[int(g)] = feats_s[bounds[i] : bounds[i + 1]]
+    return out
+
+
+def fit_edge_standardizer(
+    positions: Sequence[int] | npt.NDArray[np.integer],
+    edge_features_by_sg: dict[int, npt.NDArray[np.float32]],
+) -> tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]:
+    """Z-score stats over all internal edge rows appearing in ``positions`` (eps-guarded)."""
+    parts = [
+        edge_features_by_sg[int(pos)]
+        for pos in positions
+        if int(pos) in edge_features_by_sg and edge_features_by_sg[int(pos)].shape[0]
+    ]
+    if not parts:
+        return np.zeros(0, np.float32), np.ones(0, np.float32)
+    rows = np.concatenate(parts)
     mean = rows.mean(0).astype(np.float32)
     std = rows.std(0).astype(np.float32)
     std[std < 1e-6] = 1.0
