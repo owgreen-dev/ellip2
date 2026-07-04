@@ -463,7 +463,8 @@
       "id": "T-035",
       "title": "pyproject metadata + reproduce commands",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "pyproject.toml gains authors, license (MIT), keywords, classifiers, urls; existing deps/config unchanged and still valid.",
         "RUNBOOK.md (or a new REPRODUCE.md) documents the real end-to-end CLI sequence: ingest -> make_split -> build_features -> train_border/score_border -> make_endpoints -> investigate -> train_cluster/score_cluster -> make_typology_signal -> discover_subgraphs -> eval_recovery, plus a short AWS instance/cost note.",

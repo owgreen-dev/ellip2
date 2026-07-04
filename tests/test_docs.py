@@ -10,6 +10,7 @@ Grows across the publishing tasks (T-031..T-036); this iteration covers T-031 (R
 from __future__ import annotations
 
 import subprocess
+import tomllib
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -139,3 +140,55 @@ def test_plan_has_superseded_banner() -> None:
     assert "superseded" in text.lower() or "supersede" in text.lower(), (
         "plan.md must state it is superseded by the current results docs"
     )
+
+
+# --- T-035: pyproject metadata + reproduce commands ---
+
+
+def _load_pyproject() -> dict:
+    raw = (REPO_ROOT / "pyproject.toml").read_bytes()
+    return tomllib.loads(raw.decode("utf-8"))
+
+
+def test_pyproject_parses_and_has_metadata_keys() -> None:
+    """pyproject.toml must parse and the [project] table must carry the publishing keys."""
+    project = _load_pyproject()["project"]
+    for key in ("authors", "keywords", "classifiers", "urls"):
+        assert project.get(key), f"pyproject [project] missing/empty key: {key!r}"
+
+
+def test_pyproject_license_is_mit() -> None:
+    project = _load_pyproject()["project"]
+    license_field = project["license"]
+    text = license_field if isinstance(license_field, str) else license_field.get("text", "")
+    assert "MIT" in text, "pyproject [project].license must be MIT"
+
+
+def test_pyproject_core_config_intact() -> None:
+    """The metadata additions must not disturb requires-python or the deps list."""
+    project = _load_pyproject()["project"]
+    assert project["requires-python"] == ">=3.11"
+    assert any(dep.startswith("duckdb") for dep in project["dependencies"])
+
+
+def test_reproduce_documents_cli_sequence() -> None:
+    """A repro doc must list the end-to-end script sequence in order."""
+    candidates = ("REPRODUCE.md", "RUNBOOK.md")
+    text = "".join(_read(d) for d in candidates if (REPO_ROOT / d).is_file())
+    ordered_clis = (
+        "build_features",
+        "train_border",
+        "score_border",
+        "make_endpoints",
+        "investigate",
+        "train_cluster",
+        "score_cluster",
+        "make_typology_signal",
+        "discover_subgraphs",
+        "eval_recovery",
+    )
+    positions = []
+    for cli in ordered_clis:
+        assert cli in text, f"repro doc must mention the {cli} CLI"
+        positions.append(text.index(cli))
+    assert positions == sorted(positions), "repro doc must list the CLIs in pipeline order"
