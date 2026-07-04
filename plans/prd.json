@@ -395,7 +395,8 @@
       "id": "T-030",
       "title": "Held-out-recovery proxy eval harness",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "ellip2.discovery.eval_recovery: recovery_rate(discovered_member_sets, target_member_sets) -> fraction of TARGET subgraphs with >=1 member in any discovered member set, plus the random-baseline expectation (given |discovered union| / N). A CLI reads discovered_subgraphs.parquet + subgraphs.parquet + split.csv and reports recovery of the eval-split SUSPICIOUS subgraphs vs baseline. + scripts/eval_recovery.py shim.",
         "discover_main / known_member_idx gain an optional split filter (e.g. --exclude-split train) so discovery can EXCLUDE only train-split members while leaving held-out (test-suspicious) clusters seedable.",
