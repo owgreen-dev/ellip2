@@ -327,7 +327,8 @@
       "id": "T-025",
       "title": "Per-cluster HGBM suspicion scorer (cluster_score)",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "ellip2.pu.cluster_score: train main fits HistGradientBoostingClassifier on cluster_features rows (load_features X) vs positive_mask over LABELED members of the train split (suspicious-subgraph members=positive, licit-subgraph members=negative), reports test-member PR-AUC, pickles the model; score main writes cluster_scores.npy (N,) over all clusters (chunked, lean load).",
         "scripts/train_cluster.py + scripts/score_cluster.py thin shims.",
