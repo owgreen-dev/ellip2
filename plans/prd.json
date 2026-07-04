@@ -1,6 +1,6 @@
 {
   "repo": "local/ellip2",
-  "branchName": "ralph/discovery-opt",
+  "branchName": "ralph/publishing",
   "verifyCommand": "bash scripts/verify.sh",
   "acceptanceCriteria": [
     "bash scripts/verify.sh passes (pytest + ruff + mypy via .venv)",
@@ -404,6 +404,81 @@
         "bash scripts/verify.sh green"
       ],
       "notes": "Proxy: cluster scorer trains on train-split members (test held out); run discovery excluding ONLY train members so test-suspicious clusters can be seeded; measure how many test-suspicious subgraphs are recovered by discovered candidates vs random. Label-free yardstick. The real eval RUN is a manual box step after the loop."
+    },
+    {
+      "id": "T-031",
+      "title": "README.md \u2014 project front door",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "README.md at repo root with these ## sections: pitch/overview, Results (detection progression + named-table baseline comparison), Pipeline (ASCII diagram of Stage 0->discovery), Quickstart (uv/.venv install + `bash scripts/verify.sh`/pytest), Data (Kaggle source, ~83 GB extracted, CC BY-NC-ND 4.0 non-commercial), Reproduce (pointer to RUNBOOK), Repo layout (src/ellip2 modules + scripts CLIs), Limitations, License (MIT), Citation (both arXiv ids).",
+        "tests/test_docs.py: asserts README.md exists, contains each required section header, states the correct data size (contains '83' and NOT '26 GB'/'26GB'), and links RESULTS.md.",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "ALL numbers come from plans/publishing_facts.md (READ IT FIRST \u2014 single source of truth; do not invent metrics). Border model = Deep Sets over senders/receivers + pooled internal features. Keep it scannable; tables > prose for metrics."
+    },
+    {
+      "id": "T-032",
+      "title": "LICENSE (MIT) + data-license note",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "LICENSE file at root = standard MIT text, year 2026, holder from git identity (owgreen-dev).",
+        "A prominent note (README Data section and/or DATA.md) states the Elliptic2 DATA is CC BY-NC-ND 4.0 (non-commercial, no-derivatives) and is NOT redistributed here; code is MIT.",
+        "tests/test_docs.py: LICENSE exists and contains 'MIT'; the non-commercial data note ('CC BY-NC-ND' or 'non-commercial') is present in a tracked doc.",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "ALL numbers come from plans/publishing_facts.md (READ IT FIRST \u2014 single source of truth; do not invent metrics)."
+    },
+    {
+      "id": "T-033",
+      "title": "RESULTS.md \u2014 metrics + baseline comparison",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "RESULTS.md with: detection progression table (0.030->0.286->0.816->0.844->0.942), the NAMED baseline table (RevTrack Table 1: ours 0.942/0.854 vs RevClassify_DS 0.974/0.953 vs GLASS 0.816/0.705), the discovery recovery result (208 candidates, 5/276=1.8% recall, 121x lift), and a Limitations/Caveats section (different split; F1 at 0.5 threshold; low recall).",
+        "tests/test_docs.py: RESULTS.md exists, has the baseline comparison table (mentions RevClassify and GLASS), a caveats/limitations section, and the headline PR-AUC '0.942' string appears in BOTH README and RESULTS (consistency).",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "ALL numbers come from plans/publishing_facts.md (READ IT FIRST \u2014 single source of truth; do not invent metrics). MUST name the source table (RevTrack Table 1, GPU+features) and state the different-split caveat \u2014 do not present as identical-split."
+    },
+    {
+      "id": "T-034",
+      "title": "Fix stale docs (data size + superseded banner)",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "plan.md and RUNBOOK.md: every wrong '26 GB'/'26GB' data-size mention corrected to '~83 GB extracted / ~24 GB compressed'.",
+        "A one-line banner at the top of plan.md noting it is the original design doc, superseded by README.md/RESULTS.md for current results.",
+        "tests/test_docs.py: no tracked *.md file contains the substring '26 GB' or '26GB'.",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "ALL numbers come from plans/publishing_facts.md (READ IT FIRST \u2014 single source of truth; do not invent metrics). Only fix the data-size and add the banner; do not rewrite plan.md content."
+    },
+    {
+      "id": "T-035",
+      "title": "pyproject metadata + reproduce commands",
+      "priority": "medium",
+      "passes": false,
+      "acceptanceCriteria": [
+        "pyproject.toml gains authors, license (MIT), keywords, classifiers, urls; existing deps/config unchanged and still valid.",
+        "RUNBOOK.md (or a new REPRODUCE.md) documents the real end-to-end CLI sequence: ingest -> make_split -> build_features -> train_border/score_border -> make_endpoints -> investigate -> train_cluster/score_cluster -> make_typology_signal -> discover_subgraphs -> eval_recovery, plus a short AWS instance/cost note.",
+        "tests/test_docs.py or test asserts pyproject parses and has the new [project] keys (authors, keywords, classifiers, urls).",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "ALL numbers come from plans/publishing_facts.md (READ IT FIRST \u2014 single source of truth; do not invent metrics). CLI names are the scripts/*.py basenames. Keep requires-python and dependencies intact."
+    },
+    {
+      "id": "T-036",
+      "title": "CI workflow (verify.sh on push/PR)",
+      "priority": "low",
+      "passes": false,
+      "acceptanceCriteria": [
+        ".github/workflows/ci.yml: on push+pull_request, sets up Python 3.11+, creates a venv / installs the package + dev deps, runs `bash scripts/verify.sh`.",
+        "tests/test_docs.py: the workflow file exists and is valid YAML (yaml.safe_load succeeds) with a jobs section.",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "ALL numbers come from plans/publishing_facts.md (READ IT FIRST \u2014 single source of truth; do not invent metrics). Mirror the local gate. Use uv if available else pip; keep it minimal."
     }
   ]
 }
