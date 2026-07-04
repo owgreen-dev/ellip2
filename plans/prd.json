@@ -1,6 +1,6 @@
 {
   "repo": "local/ellip2",
-  "branchName": "ralph/pipeline",
+  "branchName": "ralph/discovery",
   "verifyCommand": "bash scripts/verify.sh",
   "acceptanceCriteria": [
     "bash scripts/verify.sh passes (pytest + ruff + mypy via .venv)",
@@ -10,7 +10,7 @@
   "features": [
     {
       "id": "T-001",
-      "title": "features/degree.py — per-cluster degree features",
+      "title": "features/degree.py \u2014 per-cluster degree features",
       "priority": "high",
       "passes": true,
       "completed_at": "2026-06-27",
@@ -24,7 +24,7 @@
     },
     {
       "id": "T-002",
-      "title": "features/edge_aggs.py — per-cluster edge-feature aggregates",
+      "title": "features/edge_aggs.py \u2014 per-cluster edge-feature aggregates",
       "priority": "high",
       "passes": true,
       "completed_at": "2026-06-27",
@@ -34,11 +34,11 @@
         "tests/test_edge_aggs.py asserts aggregates vs hand-computed values on a tiny synthetic edge table",
         "bash scripts/verify.sh green"
       ],
-      "notes": "plan.md sec 4 (Edge-feature aggregates). Keep the DuckDB streaming pattern from ingest.py. 95 anonymized edge feature columns — accept configurable indices, default to first few for the test."
+      "notes": "plan.md sec 4 (Edge-feature aggregates). Keep the DuckDB streaming pattern from ingest.py. 95 anonymized edge feature columns \u2014 accept configurable indices, default to first few for the test."
     },
     {
       "id": "T-003",
-      "title": "features/flow_concentration.py — Gini/HHI/max-counterparty",
+      "title": "features/flow_concentration.py \u2014 Gini/HHI/max-counterparty",
       "priority": "high",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -51,7 +51,7 @@
     },
     {
       "id": "T-004",
-      "title": "features/neighborhood.py — leakage-masked neighbor label fractions",
+      "title": "features/neighborhood.py \u2014 leakage-masked neighbor label fractions",
       "priority": "high",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -65,7 +65,7 @@
     },
     {
       "id": "T-005",
-      "title": "features/temporal.py — activity span & burstiness",
+      "title": "features/temporal.py \u2014 activity span & burstiness",
       "priority": "high",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -74,11 +74,11 @@
         "tests/test_temporal.py asserts span and burstiness on a synthetic timestamp sequence with a known answer",
         "bash scripts/verify.sh green"
       ],
-      "notes": "plan.md sec 4 (Temporal). Burstiness B=(sigma-mu)/(sigma+mu) of inter-event times is a fine testable choice — document it."
+      "notes": "plan.md sec 4 (Temporal). Burstiness B=(sigma-mu)/(sigma+mu) of inter-event times is a fine testable choice \u2014 document it."
     },
     {
       "id": "T-006",
-      "title": "features/path_role.py — source/sink (endpoint) heuristic",
+      "title": "features/path_role.py \u2014 source/sink (endpoint) heuristic",
       "priority": "high",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -92,7 +92,7 @@
     },
     {
       "id": "T-007",
-      "title": "features/build.py + scripts/build_features.py — assemble cluster_features.parquet",
+      "title": "features/build.py + scripts/build_features.py \u2014 assemble cluster_features.parquet",
       "priority": "high",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -106,7 +106,7 @@
     },
     {
       "id": "T-008",
-      "title": "graph/pyg_data.py — homogeneous PyG Data from memmaps",
+      "title": "graph/pyg_data.py \u2014 homogeneous PyG Data from memmaps",
       "priority": "medium",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -120,7 +120,7 @@
     },
     {
       "id": "T-009",
-      "title": "pu/nnpu_loss.py — non-negative PU risk (Kiryo 2017)",
+      "title": "pu/nnpu_loss.py \u2014 non-negative PU risk (Kiryo 2017)",
       "priority": "medium",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -129,11 +129,11 @@
         "tests/test_nnpu_loss.py asserts the risk vs a hand value on toy logits AND asserts the non-negative clamp engages when the unbiased term goes negative",
         "bash scripts/verify.sh green"
       ],
-      "notes": "plan.md sec 2; arXiv:1703.00593. CPU torch. Pure deterministic function — make the clamp explicit in a test."
+      "notes": "plan.md sec 2; arXiv:1703.00593. CPU torch. Pure deterministic function \u2014 make the clamp explicit in a test."
     },
     {
       "id": "T-010",
-      "title": "pu/prior_estimation.py — class-prior estimation + sweep",
+      "title": "pu/prior_estimation.py \u2014 class-prior estimation + sweep",
       "priority": "medium",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -146,7 +146,7 @@
     },
     {
       "id": "T-011",
-      "title": "pu/encoder.py — heterophily-tolerant GNN encoder",
+      "title": "pu/encoder.py \u2014 heterophily-tolerant GNN encoder",
       "priority": "medium",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -159,7 +159,7 @@
     },
     {
       "id": "T-012",
-      "title": "graph/neighbor_sampling.py — NeighborLoader wrapper",
+      "title": "graph/neighbor_sampling.py \u2014 NeighborLoader wrapper",
       "priority": "medium",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -172,7 +172,7 @@
     },
     {
       "id": "T-013",
-      "title": "pu/trainer.py — supervised subgraph baseline + nnPU head + max-pool",
+      "title": "pu/trainer.py \u2014 supervised subgraph baseline + nnPU head + max-pool",
       "priority": "medium",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -183,11 +183,11 @@
         "tests/test_trainer.py CPU smoke-trains a few steps on synthetic data, asserts loss decreases, checkpoint round-trips, and cluster->subgraph max-pool matches a hand example",
         "bash scripts/verify.sh green"
       ],
-      "notes": "plan.md Resolved decisions #1 and #2 + sec 4 (border-set = RevClassify insight). Subgraph = supervised by default; nnPU = cluster-level option. CPU smoke test only — no GPU/real data/S3. Depends on T-008/T-009/T-011."
+      "notes": "plan.md Resolved decisions #1 and #2 + sec 4 (border-set = RevClassify insight). Subgraph = supervised by default; nnPU = cluster-level option. CPU smoke test only \u2014 no GPU/real data/S3. Depends on T-008/T-009/T-011."
     },
     {
       "id": "T-014",
-      "title": "eval/pu_metrics.py — PR-AUC, F1, recall, Lee&Liu PU metric",
+      "title": "eval/pu_metrics.py \u2014 PR-AUC, F1, recall, Lee&Liu PU metric",
       "priority": "medium",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -200,7 +200,7 @@
     },
     {
       "id": "T-015",
-      "title": "eval/leakage_checks.py — leakage invariant assertions",
+      "title": "eval/leakage_checks.py \u2014 leakage invariant assertions",
       "priority": "medium",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -213,21 +213,21 @@
     },
     {
       "id": "T-016",
-      "title": "exit_paths/path_search.py — bounded reachability (backward+forward BFS)",
+      "title": "exit_paths/path_search.py \u2014 bounded reachability (backward+forward BFS)",
       "priority": "low",
       "passes": true,
       "completed_at": "2026-06-28",
       "acceptanceCriteria": [
         "src/ellip2/exit_paths/path_search.py runs backward multi-source BFS from an endpoint set on the transposed adjacency (scipy.sparse boolean SpMV) AND forward BFS from candidate sources, each with per-level frontier caps and hubs excluded from pass-through; intersects within k<=6",
         "Returns candidate->endpoint reachability (NOT full path enumeration); optional induced-subgraph extraction on survivors",
-        "tests/test_path_search.py asserts on a tiny graph: correct reachable set within k hops, frontier cap respected, hub not used as transit (stopped at), and backward∩forward correctness",
+        "tests/test_path_search.py asserts on a tiny graph: correct reachable set within k hops, frontier cap respected, hub not used as transit (stopped at), and backward\u2229forward correctness",
         "bash scripts/verify.sh green"
       ],
-      "notes": "plan.md Resolved decision #4 + sec 3. Reachability not enumeration. Endpoints from T-006 heuristic. Pure scipy.sparse — CPU, no cuGraph for the test."
+      "notes": "plan.md Resolved decision #4 + sec 3. Reachability not enumeration. Endpoints from T-006 heuristic. Pure scipy.sparse \u2014 CPU, no cuGraph for the test."
     },
     {
       "id": "T-017",
-      "title": "scripts/discover.py — rank candidates with corroboration",
+      "title": "scripts/discover.py \u2014 rank candidates with corroboration",
       "priority": "low",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -240,7 +240,7 @@
     },
     {
       "id": "T-018",
-      "title": "llm/serialize_subgraph.py — compact JSON serialization",
+      "title": "llm/serialize_subgraph.py \u2014 compact JSON serialization",
       "priority": "low",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -254,12 +254,12 @@
     },
     {
       "id": "T-019",
-      "title": "llm/bedrock_client.py — Converse wrapper (injectable client)",
+      "title": "llm/bedrock_client.py \u2014 Converse wrapper (injectable client)",
       "priority": "low",
       "passes": true,
       "completed_at": "2026-06-28",
       "acceptanceCriteria": [
-        "src/ellip2/llm/bedrock_client.py wraps Bedrock Converse; the boto3 client is INJECTABLE so tests pass a stub — NO real network, NO real AWS creds",
+        "src/ellip2/llm/bedrock_client.py wraps Bedrock Converse; the boto3 client is INJECTABLE so tests pass a stub \u2014 NO real network, NO real AWS creds",
         "Parses a Converse response into {typology, confidence, rationale, evidence}",
         "tests/test_bedrock_client.py injects a stub client returning a canned Converse payload and asserts parsing + that no default boto3 client is constructed in the test",
         "bash scripts/verify.sh green"
@@ -268,7 +268,7 @@
     },
     {
       "id": "T-020",
-      "title": "llm/typology_graph.py — LangGraph agent (mock LLM node)",
+      "title": "llm/typology_graph.py \u2014 LangGraph agent (mock LLM node)",
       "priority": "low",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -281,7 +281,7 @@
     },
     {
       "id": "T-021",
-      "title": "report/render.py — per-subgraph report",
+      "title": "report/render.py \u2014 per-subgraph report",
       "priority": "low",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -290,11 +290,11 @@
         "tests/test_render.py asserts all required fields including the caveat block on a synthetic candidate",
         "bash scripts/verify.sh green"
       ],
-      "notes": "plan.md sec 8. The caveat block is mandatory — outputs are investigative leads needing human review."
+      "notes": "plan.md sec 8. The caveat block is mandatory \u2014 outputs are investigative leads needing human review."
     },
     {
       "id": "T-022",
-      "title": "configs/ — Hydra config tree",
+      "title": "configs/ \u2014 Hydra config tree",
       "priority": "low",
       "passes": true,
       "completed_at": "2026-06-28",
@@ -311,7 +311,7 @@
       "priority": "low",
       "passes": false,
       "skip": true,
-      "skipReason": "Integration task requiring AWS (EC2/S3/IMDS) — cannot be verified by offline CPU unit tests. Implement manually once the pipeline modules exist.",
+      "skipReason": "Integration task requiring AWS (EC2/S3/IMDS) \u2014 cannot be verified by offline CPU unit tests. Implement manually once the pipeline modules exist.",
       "notes": "plan.md sec 5. Human/integration pass; not part of the autonomous loop."
     },
     {
@@ -320,8 +320,58 @@
       "priority": "low",
       "passes": false,
       "skip": true,
-      "skipReason": "Requires the 26 GB Elliptic2 download and an A10G GPU — out of scope for offline CPU verification.",
+      "skipReason": "Requires the 26 GB Elliptic2 download and an A10G GPU \u2014 out of scope for offline CPU verification.",
       "notes": "plan.md sec 9. Run after modules are built and Dockerized; validate against RevClassify PR-AUC/F1 on the shipped split."
+    },
+    {
+      "id": "T-025",
+      "title": "Per-cluster HGBM suspicion scorer (cluster_score)",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "ellip2.pu.cluster_score: train main fits HistGradientBoostingClassifier on cluster_features rows (load_features X) vs positive_mask over LABELED members of the train split (suspicious-subgraph members=positive, licit-subgraph members=negative), reports test-member PR-AUC, pickles the model; score main writes cluster_scores.npy (N,) over all clusters (chunked, lean load).",
+        "scripts/train_cluster.py + scripts/score_cluster.py thin shims.",
+        "tests/test_cluster_score.py: synthetic separable clusters -> train->score end-to-end, high held-out PR-AUC, scores.npy shape (N,).",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "Reuse ellip2.pu.train.load_features + positive_mask, train_subgraph.py HGBM pattern, eval.pu_metrics. Column-at-a-time lean load (subgraph_pool.py). Plan: ~/.claude/plans/yes-lets-do-it-glittery-coral.md"
+    },
+    {
+      "id": "T-026",
+      "title": "Typology-signal export + known-member exclusion helpers",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "A helper exports the source_sink_axis column of cluster_features to a (N,) .npy typology signal (Gate 3); a helper returns the union of all labeled-subgraph member idxs (exclusion set) from subgraphs.parquet.",
+        "tests: typology signal aligned to idx; exclusion union correct.",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "Mirror ellip2.exit_paths.recover.endpoints_from_features. Exclusion via np.unique(concat(member_idx)) or positive_mask(all-labels)."
+    },
+    {
+      "id": "T-027",
+      "title": "Per-candidate subgraph carve (reachability)",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "ellip2.discovery.background.candidate_member_sets(edge_index, candidate_ids, endpoints, n_nodes, *, max_hops, frontier_cap, hubs): build directed adjacency once, bfs_reachable BACKWARD from endpoints once (global), per-candidate FORWARD bfs, carve survivors=fwd.reached & back.reached & (fwd.hops+back.hops<=max_hops); return {cand: member_idx array} with endpoint ids dropped.",
+        "tests/test_background_discovery.py: synthetic graph -> carve equals known set; respects max_hops (unreachable -> empty).",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "Reuse ellip2.exit_paths.path_search.bfs_reachable + induced_subgraph. Global backward reused; only forward per-candidate."
+    },
+    {
+      "id": "T-028",
+      "title": "Background discovery orchestrator (discover_background)",
+      "priority": "high",
+      "passes": false,
+      "acceptanceCriteria": [
+        "ellip2.discovery.background.discover_background(...): Gate1 score>=percentile EXCLUDING known members, take top-K; per-candidate carve (Gate2 reaches endpoint=non-empty carve, Gate3 typology>=threshold); border-score each member-set ONE-AT-A-TIME with a node-only SupervisedSubgraphModel checkpoint; rank by border score; write discovered_subgraphs.parquet (ccId,ccLabel,n_members,member_idx) + discovered_scores.parquet (ccId,score,label,split).",
+        "scripts/discover_subgraphs.py shim.",
+        "test: synthetic end-to-end -> novel candidate surfaced, known members excluded, member sets valid, outputs in existing schema.",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "Reuse candidate_member_sets(T-027), extract_border_sets/build_subgraph_batch/SupervisedSubgraphModel/load_checkpoint (score_border.py template). Emit existing schema so leads/investigate reuse unchanged."
     }
   ]
 }
