@@ -109,16 +109,23 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     mean, std = fit_node_standardizer(tr, border, node_features)
     device = torch.device(args.device)
+    # edge_dim defaults to the schema constant but is set to the ACTUAL width of the
+    # extracted edge features when the channel is on (the real background_edges.csv has
+    # 96 feature columns, not the paper's 95 — ingest never validated the count).
     edim = schema.N_EDGE_FEATURES
 
     edge_feats = None
     edge_mean = edge_std = None
     if args.internal_edges is not None:
         edge_feats = load_internal_edge_features(args.internal_edges)
+        for v in edge_feats.values():
+            if v.shape[0]:
+                edim = int(v.shape[1])
+                break
         edge_mean, edge_std = fit_edge_standardizer(tr, edge_feats)
         n_edge_rows = sum(int(v.shape[0]) for v in edge_feats.values())
         print(f"[train_border] internal edges: {n_edge_rows:,} rows over "
-              f"{len(edge_feats):,} subgraphs (edge channel ON)", flush=True)
+              f"{len(edge_feats):,} subgraphs, edge_dim={edim} (edge channel ON)", flush=True)
 
     batch = build_subgraph_batch(tr, border, node_features, mean=mean, std=std, edge_dim=edim,
                                  edge_features_by_sg=edge_feats, edge_mean=edge_mean,
@@ -126,7 +133,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     y = torch.from_numpy(labels[tr].astype(np.float32))
 
     model = SupervisedSubgraphModel(
-        node_dim, schema.N_EDGE_FEATURES,
+        node_dim, edim,
         set_hidden=args.set_hidden, set_out=args.set_out, mlp_hidden=tuple(args.mlp_hidden),
     ).to(device)
     print(f"[train_border] train={len(tr):,} (pos={n_pos}, pos_weight={pos_weight:.1f}) "
@@ -158,7 +165,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         extra={
             "framing": "supervised_subgraph_border",
             "node_dim": node_dim,
-            "edge_dim": schema.N_EDGE_FEATURES,
+            "edge_dim": edim,
             "border_cap": args.border_cap,
             "set_hidden": args.set_hidden,
             "set_out": args.set_out,
