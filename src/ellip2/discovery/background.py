@@ -488,6 +488,9 @@ def discover_main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--top-k", type=int, default=1000)
     p.add_argument("--max-hops", type=int, default=MAX_HOPS)
     p.add_argument("--frontier-cap", type=int, default=None)
+    p.add_argument("--hub-degree", type=int, default=None,
+                   help="clusters with total (in+out) degree above this are stopped at, "
+                        "not transited, in the carve — bounds hub explosion on the real graph")
     p.add_argument("--typology-threshold", type=float, default=0.0)
     p.add_argument("--device", default="cpu")
     args = p.parse_args(argv)
@@ -499,6 +502,14 @@ def discover_main(argv: Sequence[str] | None = None) -> int:
     endpoints = np.load(args.endpoints)
     typ = np.load(args.typology_signal) if args.typology_signal is not None else None
     known = known_member_idx(args.subgraphs, n_nodes=n_nodes)
+
+    hubs = None
+    if args.hub_degree is not None:
+        deg = (np.bincount(edge_index[0], minlength=n_nodes)
+               + np.bincount(edge_index[1], minlength=n_nodes))
+        hubs = np.flatnonzero(deg > args.hub_degree)
+        print(f"[discover] hub-stop: {hubs.size:,} clusters with degree > {args.hub_degree}",
+              flush=True)
 
     device = torch.device(args.device)
     ckpt = torch.load(str(args.model), map_location=device, weights_only=False)
@@ -523,7 +534,7 @@ def discover_main(argv: Sequence[str] | None = None) -> int:
     )
     result = discover_background(
         scores, edge_index, endpoints, n_nodes, node_features, model,
-        typology_signal=typ, known_members=known,
+        typology_signal=typ, known_members=known, hubs=hubs,
         feat_mean=mean, feat_std=std, edge_dim=int(extra["edge_dim"]), config=cfg,
     )
     write_discovered(result, args.out_subgraphs, args.out_scores)
