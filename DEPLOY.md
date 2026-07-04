@@ -2,7 +2,7 @@
 
 Yes — the model is **develop locally, bake into one Docker image, run on EC2**.
 
-## 1. Develop & test locally (no GPU, no 26 GB download)
+## 1. Develop & test locally (no GPU, no ~24 GB download)
 Each module is unit-tested against tiny synthetic CSVs in `tests/`. Use a venv:
 
 ```bash

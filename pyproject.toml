@@ -6,7 +6,30 @@ build-backend = "hatchling.build"
 name = "ellip2"
 version = "0.1.0"
 description = "Bitcoin AML research on Elliptic2 via subgraph-level detection + cluster-level PU learning"
+readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "owgreen-dev", email = "ogreenowow@gmail.com" }]
+keywords = [
+    "anti-money-laundering",
+    "aml",
+    "bitcoin",
+    "blockchain",
+    "graph-neural-networks",
+    "positive-unlabeled-learning",
+    "elliptic2",
+    "subgraph-classification",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Security",
+]
 # Core data-plane deps (Stage 0 ingest + Stage 1 features). CPU-only, no CUDA.
 dependencies = [
     "duckdb>=1.1",
@@ -42,6 +65,12 @@ dev = [
     "langchain-core>=0.3",
     "boto3>=1.34",
 ]
+
+[project.urls]
+Homepage = "https://github.com/owgreen-dev/ellip2"
+Repository = "https://github.com/owgreen-dev/ellip2"
+Documentation = "https://github.com/owgreen-dev/ellip2/blob/main/README.md"
+Issues = "https://github.com/owgreen-dev/ellip2/issues"
 
 [project.scripts]
 ellip2-ingest = "ellip2.data.ingest:main"

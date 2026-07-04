@@ -1,0 +1,32 @@
+# Mirrors the local Ralph verify gate (scripts/verify.sh = pytest + ruff + mypy) in CI.
+# Runs on every push and pull request. Builds the same `.venv` the gate expects (the
+# repo has no system pip; deps live in `.venv`), installing the package + `dev` extra —
+# the CPU-only test superset (torch CPU wheel, torch-geometric, scipy, langgraph, boto3).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    name: verify (pytest + ruff + mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Create .venv and install (package + dev extra)
+        run: |
+          uv venv .venv
+          uv pip install --python .venv/bin/python -e ".[dev]"
+
+      - name: Run verify gate
+        run: bash scripts/verify.sh

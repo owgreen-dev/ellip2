@@ -37,11 +37,11 @@ echo "acct=$ACCOUNT_ID region=$REGION bucket=$BUCKET"
 
 You need an AWS account with permissions for: S3, ECR, EC2, and IAM (to create one role).
 **Cost heads-up:** a g5.xlarge is ~$1.00/hr on-demand (~$0.40/hr spot); EBS gp3 100 GB is
-~$8/mo; S3 storage for ~26 GB is ~$0.60/mo. Budget a few dollars for a full run + teardown.
+~$8/mo; S3 storage for ~24 GB compressed is ~$0.60/mo. Budget a few dollars for a full run + teardown.
 
 ---
 
-## Part 1 — Get the dataset onto S3 (~26 GB, one-time)
+## Part 1 — Get the dataset onto S3 (~24 GB compressed, one-time)
 
 The 5 CSVs are not redistributed here. Download from Kaggle
 (`ellipticco/elliptic2-data-set`) or the MITIBMxGraph/Elliptic2 release, unzip to get:
@@ -59,7 +59,7 @@ aws s3 cp ./elliptic2/ s3://$BUCKET/elliptic2/raw/ --recursive --exclude "*" --i
 aws s3 ls s3://$BUCKET/elliptic2/raw/
 ```
 
-> Tip: 26 GB over a home connection is slow. If you have the data on another cloud box,
+> Tip: ~24 GB compressed over a home connection is slow. If you have the data on another cloud box,
 > upload from there. `s5cmd` is much faster than `aws s3 cp` for this.
 
 ---
@@ -140,7 +140,7 @@ export KEY=my-keypair          # an existing EC2 key pair name (for SSH)
 export SG=sg-xxxxxxxx          # a security group allowing inbound SSH (port 22) from your IP
 ```
 
-Launch with a 150 GB gp3 root volume (holds the 26 GB raw + artifacts with headroom):
+Launch with a 150 GB gp3 root volume (holds the ~83 GB extracted raw + artifacts with headroom):
 
 ```bash
 aws ec2 run-instances --region $REGION \
