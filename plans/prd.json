@@ -381,7 +381,8 @@
       "id": "T-029",
       "title": "Optimize per-candidate reachability (reuse transposed step matrix)",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "bfs_reachable (ellip2.exit_paths.path_search) accepts an optional precomputed step_matrix (== adjacency.transpose().tocsr()); when provided it SKIPS the per-call transpose (path_search.py:198) and uses it directly.",
         "candidate_member_sets (ellip2.discovery.background) builds the transposed CSR ONCE and passes it as step_matrix to the single global backward sweep AND to every per-candidate forward sweep, so the O(nnz) transpose happens once, not per candidate.",

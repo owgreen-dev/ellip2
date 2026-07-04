@@ -159,6 +159,7 @@ def bfs_reachable(
     max_hops: int = MAX_HOPS,
     frontier_cap: int | None = None,
     hub_mask: npt.NDArray[np.bool_] | None = None,
+    step_matrix: sparse.spmatrix | None = None,
 ) -> BFSResult:
     """Bounded multi-source BFS over the **out-edges** of ``adjacency``.
 
@@ -175,13 +176,20 @@ def bfs_reachable(
             per level (lowest node id first); truncated levels are recorded.
         hub_mask: ``(N,)`` bool; reached hubs are recorded but not expanded
             (excluded from pass-through). Seeds are exempt — always expanded.
+        step_matrix: optional precomputed step matrix, which **must** equal
+            ``adjacency.transpose().tocsr()``. When supplied, the per-call
+            transpose is skipped and this matrix is used directly — hot-path
+            callers that run many sweeps over the *same* graph (e.g. one forward
+            sweep per candidate) should build it once and pass it every call so
+            the ``O(nnz)`` transpose happens once, not per sweep.
 
     Returns:
         A :class:`BFSResult`.
 
     Raises:
         ValueError: on a non-square adjacency, a negative ``max_hops``, a
-            non-positive ``frontier_cap``, or an out-of-range seed.
+            non-positive ``frontier_cap``, an out-of-range seed, or a
+            ``step_matrix`` whose shape does not match ``adjacency``.
     """
     if adjacency.shape[0] != adjacency.shape[1]:
         raise ValueError(f"adjacency must be square, got {adjacency.shape}")
@@ -194,8 +202,17 @@ def bfs_reachable(
     seed_ids = _as_node_ids("seeds", seeds, n_nodes)
     # Step matrix: (adjacencyᵀ · f)[k] counts frontier predecessors of k under
     # adjacencyᵀ == frontier nodes i with edge i → k. So `> 0` is the out-neighbour
-    # set of the frontier. Transpose once, not per level.
-    step = adjacency.transpose().tocsr()
+    # set of the frontier. Transpose once, not per level — and, when a caller passes
+    # an already-transposed `step_matrix` (== adjacencyᵀ), not even once per call.
+    if step_matrix is not None:
+        if step_matrix.shape != adjacency.shape:
+            raise ValueError(
+                f"step_matrix shape {step_matrix.shape} != adjacency shape "
+                f"{adjacency.shape}"
+            )
+        step = step_matrix
+    else:
+        step = adjacency.transpose().tocsr()
 
     reached = np.zeros(n_nodes, dtype=bool)
     hops = np.full(n_nodes, -1, dtype=np.int64)

@@ -171,13 +171,19 @@ def candidate_member_sets(
     endpoint_ids = _as_node_ids("endpoints", endpoints, n_nodes)
     hub_mask = _hub_mask(hubs, n_nodes)
 
+    # Build the directed adjacency `a` and its transpose `a_t` ONCE. The O(nnz)
+    # transpose of the (196M-nnz) background graph is the expensive step, so it must
+    # not recur per candidate. `a` is the forward step matrix for the backward sweep
+    # (which walks aᵀ's out-edges) and `a_t` is the step matrix for every per-candidate
+    # forward sweep (which walks a's out-edges) — see bfs_reachable's `step_matrix`.
     a = _build_directed_adjacency(ei, n_nodes)
     a_t = a.transpose().tocsr()
 
     # Global backward sweep from the endpoint set — identical for every candidate,
     # so compute it once and reuse.
     backward = bfs_reachable(
-        a_t, endpoint_ids, max_hops=max_hops, frontier_cap=frontier_cap, hub_mask=hub_mask
+        a_t, endpoint_ids, max_hops=max_hops, frontier_cap=frontier_cap,
+        hub_mask=hub_mask, step_matrix=a,
     )
 
     drop_endpoint = np.zeros(n_nodes, dtype=bool)
@@ -186,7 +192,8 @@ def candidate_member_sets(
     member_sets: dict[int, npt.NDArray[np.int64]] = {}
     for cand in candidates:
         forward = bfs_reachable(
-            a, [int(cand)], max_hops=max_hops, frontier_cap=frontier_cap, hub_mask=hub_mask
+            a, [int(cand)], max_hops=max_hops, frontier_cap=frontier_cap,
+            hub_mask=hub_mask, step_matrix=a_t,
         )
         both = forward.reached & backward.reached
         total = forward.hops + backward.hops  # valid only where both reached
