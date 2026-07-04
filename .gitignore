@@ -13,10 +13,12 @@ artifacts/
 *.parquet
 _duckdb_tmp/
 
-# Ralph loop local state (not committed)
-.claude/ralph-*.local.*
-.claude/settings.local.json
-scripts/ralph/runs/
+# Dev / agent scaffolding — not part of the published project
+plans/
+.claude/
+scripts/ralph/
+plan.md
+DEPLOY.md
 
 # OS
 .DS_Store
