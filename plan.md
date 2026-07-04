@@ -1,3 +1,6 @@
+> **Note:** This is the original design document. For current results and status see
+> [README.md](README.md) and [RESULTS.md](RESULTS.md), which supersede the numbers here.
+
 Claude Code Implementation Plan: Bitcoin AML Research on Elliptic2 — Subgraph-Level Detection (Imbalanced Supervised) with Optional Cluster-Level PU Learning
 TL;DR
 
@@ -14,7 +17,7 @@ Resolved design decisions (reconciles the four open issues)
 Key Findings
 1. Elliptic2 data structure
 
-Source of truth: paper arXiv:2404.19109 ("The Shape of Money Laundering"), GitHub MITIBMxGraph/Elliptic2, Kaggle ellipticco/elliptic2-data-set. Download is ~26GB unzipped into 5 CSVs. The Hacker News
+Source of truth: paper arXiv:2404.19109 ("The Shape of Money Laundering"), GitHub MITIBMxGraph/Elliptic2, Kaggle ellipticco/elliptic2-data-set. Download is ~83 GB extracted / ~24 GB compressed into 5 CSVs. The Hacker News
 Exact counts (paper Table 1): 49,299,864 nodes; 196,215,606 edges; 121,810 labeled subgraphs; 43 node features; 95 edge features; 2 classes. Licit subgraphs = 119,047 (avg 3.65 nodes, median 3, max 296); Suspicious = 2,763 (avg 3.79 nodes, median 3, max 30). (RevTrack's paper reports 119,092 licit / 2,718 suspicious — minor version differences; use the split shipped with the data you download.) arXivarXiv
 Schema (confirmed from preprocess_glass.py in the Elliptic2 repo):
 
@@ -65,7 +68,7 @@ Subgraph-level readout (Path A — the decisive RevClassify insight): represent 
 
 Base image: use an AWS Deep Learning Container (PyTorch GPU on Ubuntu 22.04) matched to a CUDA your PyG wheels support. As of mid-2026 AWS DLCs exist for PyTorch 2.5/CUDA 12.4, 2.7/CUDA 12.8, and 2.9/CUDA 13.0. Pin PyG companion wheels to the exact torch+CUDA: install torch-scatter/torch-sparse/torch-cluster/torch-spline-conv from https://data.pyg.org/whl/torch-${VER}+cu${CUDA}.html. CUDA/PyG mismatch is the #1 install failure.
 Alternative: Deep Learning AMI (Ubuntu 22.04) bakes NVIDIA driver + CUDA + Docker; then a slim custom Dockerfile. g5 needs the NVIDIA driver + NVIDIA Container Toolkit; A10G shows as 23028MiB. AWS re:Post
-S3: dataset (~26GB) — download once to an EBS gp3 volume (≥100GB) via aws s3 cp/s5cmd rather than streaming per-epoch; keep preprocessed CSR/feature artifacts on EBS and back up to S3.
+S3: dataset (~83 GB extracted / ~24 GB compressed) — download once to an EBS gp3 volume (≥100GB) via aws s3 cp/s5cmd rather than streaming per-epoch; keep preprocessed CSR/feature artifacts on EBS and back up to S3.
 Spot interruption: poll IMDSv2 http://169.254.169.254/latest/meta-data/spot/instance-action every 5s and/or trap SIGTERM; on the 2-minute notice, checkpoint model+optimizer+RNG+epoch/offset to S3 and exit non-zero so the job requeues. Resume by loading the latest S3 checkpoint. Test locally with Amazon EC2 Metadata Mock (AEMM). Amazon Web Services + 3
 User data script: install driver/toolkit (or use DLAMI) → pull image from ECR → aws s3 cp the data → run container with --gpus all, mount EBS → start training with checkpoint-resume.
 

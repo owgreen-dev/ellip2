@@ -10,7 +10,7 @@ Elliptic2 Bitcoin anti-money-laundering (AML) research pipeline. Two capabilitie
 
 ## Dataset
 - Source: Kaggle `ellipticco/elliptic2-data-set` (paper "The Shape of Money Laundering").
-- Size: **~24 GB compressed / ~83 GB extracted** (5 CSVs). NOT "26 GB".
+- Size: **~24 GB compressed / ~83 GB extracted** (5 CSVs). NOT the often-quoted stale "26-GB" figure.
 - License: **CC BY-NC-ND 4.0** (non-commercial, no-derivatives). Data is NOT redistributed in this repo.
 - Validated counts (paper Table 1): **49,299,864** background clusters (nodes) ·
   **196,215,606** background edges · **121,810** labeled subgraphs

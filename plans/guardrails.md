@@ -63,7 +63,7 @@ The system `python3` has NO pip and NO ensurepip. To install, use
 ### SIGN-101: Tests are synthetic / CPU-only / mocked — no external resources
 **Trigger:** Writing any test
 **Instruction:** Generate tiny fixtures in a tmp dir (follow `tests/test_ingest.py` and
-`tests/test_splits.py`). NEVER download the 26 GB Elliptic2 dataset, NEVER call AWS /
+`tests/test_splits.py`). NEVER download the ~83 GB Elliptic2 dataset, NEVER call AWS /
 Bedrock over the network (inject/stub the client), NEVER require a GPU
 (`torch.cuda.is_available()` is False here — keep everything on CPU), NEVER need real
 S3. A test that needs any of these does not belong in the suite; gate the logic with a

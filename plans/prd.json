@@ -449,7 +449,8 @@
       "id": "T-034",
       "title": "Fix stale docs (data size + superseded banner)",
       "priority": "medium",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "plan.md and RUNBOOK.md: every wrong '26 GB'/'26GB' data-size mention corrected to '~83 GB extracted / ~24 GB compressed'.",
         "A one-line banner at the top of plan.md noting it is the original design doc, superseded by README.md/RESULTS.md for current results.",
