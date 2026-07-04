@@ -367,7 +367,8 @@
       "id": "T-028",
       "title": "Background discovery orchestrator (discover_background)",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "ellip2.discovery.background.discover_background(...): Gate1 score>=percentile EXCLUDING known members, take top-K; per-candidate carve (Gate2 reaches endpoint=non-empty carve, Gate3 typology>=threshold); border-score each member-set ONE-AT-A-TIME with a node-only SupervisedSubgraphModel checkpoint; rank by border score; write discovered_subgraphs.parquet (ccId,ccLabel,n_members,member_idx) + discovered_scores.parquet (ccId,score,label,split).",
         "scripts/discover_subgraphs.py shim.",

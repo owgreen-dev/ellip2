@@ -157,6 +157,175 @@ def test_main_writes_npy(tmp_path: Path) -> None:
     np.testing.assert_allclose(np.load(out), axis)
 
 
+# --- T-028: discover_background orchestrator ---------------------------------
+#
+# A 10-node background graph with endpoint 9. Four candidate seeds get high
+# suspicion scores; each exercises a different gate:
+#   0: novel, reaches 9 via 0->1->2->9, strong typology  -> SURFACES
+#   3: reaches 9 via 3->4->9 but weak typology            -> dropped by Gate 3
+#   5: reaches 9 via 5->6->9 but is a KNOWN member        -> dropped by Gate 1
+#   7: high score, no path to any endpoint                -> dropped by Gate 2
+_DISCO_EDGES = [(0, 1), (1, 2), (2, 9), (3, 4), (4, 9), (5, 6), (6, 9)]
+_DISCO_N = 10
+_DISCO_ENDPOINTS = [9]
+_DISCO_F = 6
+
+
+def _disco_model():  # type: ignore[no-untyped-def]
+    import torch
+
+    from ellip2.pu.trainer import SupervisedSubgraphModel
+
+    torch.manual_seed(0)
+    return SupervisedSubgraphModel(
+        _DISCO_F, 95, set_hidden=8, set_out=4, mlp_hidden=(8,)
+    )
+
+
+def _disco_inputs() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    scores = np.zeros(_DISCO_N, dtype=np.float64)
+    scores[[0, 3, 5, 7]] = 0.9  # the four high-score seeds
+    typ = np.zeros(_DISCO_N, dtype=np.float64)
+    typ[0] = 1.0  # only seed 0 clears the typology gate
+    known = np.array([5, 6], dtype=np.int64)  # seed 5 is an already-known member
+    node_features = np.ones((_DISCO_N, _DISCO_F), dtype=np.float32)
+    ei = _edge_index(_DISCO_EDGES)
+    return scores, typ, known, node_features, ei
+
+
+def test_discover_background_surfaces_novel_only() -> None:
+    scores, typ, known, node_features, ei = _disco_inputs()
+    cfg = background.BackgroundDiscoveryConfig(
+        score_percentile=0.7, top_k=10, max_hops=6, typology_threshold=0.5
+    )
+    result = background.discover_background(
+        scores, ei, _DISCO_ENDPOINTS, _DISCO_N, node_features, _disco_model(),
+        typology_signal=typ, known_members=known, config=cfg,
+    )
+    # only candidate 0 clears all three gates
+    assert [d.candidate for d in result.discovered] == [0]
+    d0 = result.discovered[0]
+    assert d0.cc_id == "bg0" and d0.rank == 1
+    # carved member set = the ≤6-hop 0->9 path minus the endpoint
+    np.testing.assert_array_equal(d0.member_idx, np.array([0, 1, 2], dtype=np.int64))
+    assert 9 not in set(d0.member_idx.tolist())  # endpoint dropped
+    assert 5 not in {d.candidate for d in result.discovered}  # known excluded
+    assert 7 not in {d.candidate for d in result.discovered}  # no path (Gate 2)
+    assert np.isfinite(d0.border_score)
+    # 0, 3, 7 are candidates (5 excluded as known); only 0 & 3 reach an endpoint
+    assert result.n_candidates == 3
+    assert result.n_reached == 2
+
+
+def test_discover_background_typology_gate_optional() -> None:
+    scores, typ, known, node_features, ei = _disco_inputs()
+    # no typology signal + threshold 0 => Gate 3 is a no-op; seed 3 now survives too.
+    cfg = background.BackgroundDiscoveryConfig(
+        score_percentile=0.7, top_k=10, max_hops=6, typology_threshold=0.0
+    )
+    result = background.discover_background(
+        scores, ei, _DISCO_ENDPOINTS, _DISCO_N, node_features, _disco_model(),
+        known_members=known, config=cfg,
+    )
+    assert {d.candidate for d in result.discovered} == {0, 3}
+    # ranks are contiguous 1..k in descending border-score order
+    assert sorted(d.rank for d in result.discovered) == [1, 2]
+
+
+def test_discover_background_excludes_known_even_with_top_score() -> None:
+    scores, typ, known, node_features, ei = _disco_inputs()
+    scores[5] = 5.0  # make the known member the single highest score
+    cfg = background.BackgroundDiscoveryConfig(
+        score_percentile=0.7, top_k=1, max_hops=6, typology_threshold=0.0
+    )
+    result = background.discover_background(
+        scores, ei, _DISCO_ENDPOINTS, _DISCO_N, node_features, _disco_model(),
+        known_members=known, config=cfg,
+    )
+    # top_k=1 but the top scorer (5) is known -> the next eligible seed is taken
+    assert 5 not in {d.candidate for d in result.discovered}
+
+
+def test_discover_background_writes_existing_schema(tmp_path: Path) -> None:
+    scores, typ, known, node_features, ei = _disco_inputs()
+    cfg = background.BackgroundDiscoveryConfig(
+        score_percentile=0.7, top_k=10, max_hops=6, typology_threshold=0.5
+    )
+    result = background.discover_background(
+        scores, ei, _DISCO_ENDPOINTS, _DISCO_N, node_features, _disco_model(),
+        typology_signal=typ, known_members=known, config=cfg,
+    )
+    sg_out = tmp_path / "discovered_subgraphs.parquet"
+    sc_out = tmp_path / "discovered_scores.parquet"
+    background.write_discovered(result, sg_out, sc_out)
+
+    # same schema as the labeled subgraphs.parquet / *_scores.parquet
+    sg = pq.read_table(sg_out)
+    assert sg.column_names == ["ccId", "ccLabel", "n_members", "member_idx"]
+    sc = pq.read_table(sc_out)
+    assert sc.column_names == ["ccId", "score", "label", "split"]
+    # member_idx round-trips and n_members agrees
+    assert sg.column("ccId").to_pylist() == ["bg0"]
+    assert sg.column("n_members").to_pylist() == [3]
+    assert sg.column("member_idx").to_pylist() == [[0, 1, 2]]
+    assert sc.column("split").to_pylist() == ["discovered"]
+    assert sc.column("label").to_pylist() == [-1]
+
+
+def test_discover_main_end_to_end(tmp_path: Path) -> None:
+    import torch
+
+    from ellip2.pu.trainer import SupervisedSubgraphModel, save_checkpoint
+
+    scores, typ, known, node_features, ei = _disco_inputs()
+
+    # Stage-0-style artifacts on disk.
+    np.save(tmp_path / "cluster_scores.npy", scores)
+    np.save(tmp_path / "edge_index.npy", ei)
+    np.save(tmp_path / "node_features.npy", node_features)
+    np.save(tmp_path / "endpoints.npy", np.array(_DISCO_ENDPOINTS, dtype=np.int64))
+    np.save(tmp_path / "typology_signal.npy", typ)
+    # known members 5,6 live in a labeled subgraph so known_member_idx picks them up.
+    sub = _write_subgraphs(tmp_path, [[5, 6]], ["suspicious"])
+
+    # A node-only border checkpoint (use_edges False) with the extra dict main reads.
+    torch.manual_seed(0)
+    model = SupervisedSubgraphModel(_DISCO_F, 95, set_hidden=8, set_out=4, mlp_hidden=(8,))
+    opt = torch.optim.Adam(model.parameters())
+    ckpt = tmp_path / "border_model.pt"
+    save_checkpoint(
+        ckpt, model, opt,
+        extra={
+            "framing": "supervised_subgraph_border",
+            "node_dim": _DISCO_F, "edge_dim": 95, "border_cap": 64,
+            "set_hidden": 8, "set_out": 4, "mlp_hidden": [8],
+            "feat_mean": [0.0] * _DISCO_F, "feat_std": [1.0] * _DISCO_F,
+            "use_edges": False, "edge_mean": None, "edge_std": None,
+        },
+    )
+
+    sg_out = tmp_path / "discovered_subgraphs.parquet"
+    sc_out = tmp_path / "discovered_scores.parquet"
+    rc = background.discover_main([
+        "--scores", str(tmp_path / "cluster_scores.npy"),
+        "--edge-index", str(tmp_path / "edge_index.npy"),
+        "--node-features", str(tmp_path / "node_features.npy"),
+        "--endpoints", str(tmp_path / "endpoints.npy"),
+        "--model", str(ckpt),
+        "--subgraphs", str(sub),
+        "--typology-signal", str(tmp_path / "typology_signal.npy"),
+        "--out-subgraphs", str(sg_out),
+        "--out-scores", str(sc_out),
+        "--score-percentile", "0.7",
+        "--typology-threshold", "0.5",
+    ])
+    assert rc == 0 and sg_out.is_file() and sc_out.is_file()
+    sg = pq.read_table(sg_out)
+    # novel candidate 0 surfaced; known members 5/6 never appear.
+    assert sg.column("ccId").to_pylist() == ["bg0"]
+    assert sg.column("member_idx").to_pylist() == [[0, 1, 2]]
+
+
 if __name__ == "__main__":
     import tempfile
 
@@ -172,7 +341,15 @@ if __name__ == "__main__":
         test_candidate_member_sets_dedups_candidates,
         test_candidate_member_sets_bad_edge_index_raises,
         test_main_writes_npy,
+        test_discover_background_writes_existing_schema,
+        test_discover_main_end_to_end,
     ):
         with tempfile.TemporaryDirectory() as d:
             fn(Path(d))
+    for fn0 in (
+        test_discover_background_surfaces_novel_only,
+        test_discover_background_typology_gate_optional,
+        test_discover_background_excludes_known_even_with_top_score,
+    ):
+        fn0()
     print("ok")
