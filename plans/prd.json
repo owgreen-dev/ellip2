@@ -422,7 +422,8 @@
       "id": "T-032",
       "title": "LICENSE (MIT) + data-license note",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "LICENSE file at root = standard MIT text, year 2026, holder from git identity (owgreen-dev).",
         "A prominent note (README Data section and/or DATA.md) states the Elliptic2 DATA is CC BY-NC-ND 4.0 (non-commercial, no-derivatives) and is NOT redistributed here; code is MIT.",

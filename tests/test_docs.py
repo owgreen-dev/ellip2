@@ -53,3 +53,25 @@ def test_readme_data_size_correct() -> None:
 def test_readme_links_results() -> None:
     text = _read("README.md")
     assert "RESULTS.md" in text, "README.md must link RESULTS.md"
+
+
+# --- T-032: LICENSE (MIT) + non-commercial data note ---
+
+
+def test_license_exists_and_is_mit() -> None:
+    path = REPO_ROOT / "LICENSE"
+    assert path.is_file(), "LICENSE file must exist at repo root"
+    assert "MIT" in path.read_text(encoding="utf-8"), "LICENSE must be MIT"
+
+
+def test_data_noncommercial_note_present() -> None:
+    """The CC BY-NC-ND / non-commercial data note must appear in a tracked doc."""
+    docs = ("README.md", "DATA.md")
+    found = any(
+        (REPO_ROOT / d).is_file()
+        and (
+            "CC BY-NC-ND" in _read(d) or "non-commercial" in _read(d)
+        )
+        for d in docs
+    )
+    assert found, "A non-commercial data-license note must be present in a tracked doc"
