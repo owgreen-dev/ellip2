@@ -341,7 +341,8 @@
       "id": "T-026",
       "title": "Typology-signal export + known-member exclusion helpers",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "A helper exports the source_sink_axis column of cluster_features to a (N,) .npy typology signal (Gate 3); a helper returns the union of all labeled-subgraph member idxs (exclusion set) from subgraphs.parquet.",
         "tests: typology signal aligned to idx; exclusion union correct.",
