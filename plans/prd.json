@@ -409,7 +409,8 @@
       "id": "T-031",
       "title": "README.md \u2014 project front door",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "README.md at repo root with these ## sections: pitch/overview, Results (detection progression + named-table baseline comparison), Pipeline (ASCII diagram of Stage 0->discovery), Quickstart (uv/.venv install + `bash scripts/verify.sh`/pytest), Data (Kaggle source, ~83 GB extracted, CC BY-NC-ND 4.0 non-commercial), Reproduce (pointer to RUNBOOK), Repo layout (src/ellip2 modules + scripts CLIs), Limitations, License (MIT), Citation (both arXiv ids).",
         "tests/test_docs.py: asserts README.md exists, contains each required section header, states the correct data size (contains '83' and NOT '26 GB'/'26GB'), and links RESULTS.md.",
