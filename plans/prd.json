@@ -436,7 +436,8 @@
       "id": "T-033",
       "title": "RESULTS.md \u2014 metrics + baseline comparison",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "RESULTS.md with: detection progression table (0.030->0.286->0.816->0.844->0.942), the NAMED baseline table (RevTrack Table 1: ours 0.942/0.854 vs RevClassify_DS 0.974/0.953 vs GLASS 0.816/0.705), the discovery recovery result (208 candidates, 5/276=1.8% recall, 121x lift), and a Limitations/Caveats section (different split; F1 at 0.5 threshold; low recall).",
         "tests/test_docs.py: RESULTS.md exists, has the baseline comparison table (mentions RevClassify and GLASS), a caveats/limitations section, and the headline PR-AUC '0.942' string appears in BOTH README and RESULTS (consistency).",

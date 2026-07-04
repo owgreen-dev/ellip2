@@ -75,3 +75,30 @@ def test_data_noncommercial_note_present() -> None:
         for d in docs
     )
     assert found, "A non-commercial data-license note must be present in a tracked doc"
+
+
+# --- T-033: RESULTS.md (metrics + baseline comparison) ---
+
+
+def test_results_exists() -> None:
+    assert (REPO_ROOT / "RESULTS.md").is_file(), "RESULTS.md must exist at repo root"
+
+
+def test_results_has_baseline_comparison() -> None:
+    """RESULTS.md must carry the NAMED baseline table (RevClassify + GLASS)."""
+    text = _read("RESULTS.md")
+    assert "RevClassify" in text, "RESULTS.md must name RevClassify in the baseline table"
+    assert "GLASS" in text, "RESULTS.md must name GLASS in the baseline table"
+
+
+def test_results_has_caveats_section() -> None:
+    text = _read("RESULTS.md")
+    assert "Limitations" in text or "Caveats" in text or "caveats" in text, (
+        "RESULTS.md must have a Limitations/Caveats section"
+    )
+
+
+def test_headline_pr_auc_consistent_across_docs() -> None:
+    """The headline PR-AUC 0.942 must appear in BOTH README and RESULTS."""
+    assert "0.942" in _read("README.md"), "README.md must state the headline PR-AUC 0.942"
+    assert "0.942" in _read("RESULTS.md"), "RESULTS.md must state the headline PR-AUC 0.942"
