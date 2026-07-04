@@ -2,7 +2,8 @@
 
 CPU-only, synthetic (SIGN-101). T-026: the typology-signal export
 (``source_sink_axis`` -> idx-aligned ``(N,)`` array) and the known-member
-exclusion union over ``subgraphs.parquet``.
+exclusion union over ``subgraphs.parquet``. T-027: the per-candidate reachability
+carve (``candidate_member_sets``).
 """
 
 from __future__ import annotations
@@ -99,6 +100,54 @@ def test_known_member_idx_bounded(tmp_path: Path) -> None:
     np.testing.assert_array_equal(got, np.array([0, 1, 2, 3], dtype=np.int64))
 
 
+def _edge_index(edges: list[tuple[int, int]]) -> np.ndarray:
+    """(2, E) int64 edge_index from a list of (src, dst) tuples."""
+    if not edges:
+        return np.zeros((2, 0), dtype=np.int64)
+    arr = np.asarray(edges, dtype=np.int64).T
+    return np.ascontiguousarray(arr)
+
+
+# 0 -> 1 -> 2 -> 3 (endpoint), plus a dead-end branch 1 -> 4 that reaches nothing.
+_CARVE_EDGES = [(0, 1), (1, 2), (2, 3), (1, 4)]
+
+
+def test_candidate_member_sets_carve_equals_known(tmp_path: Path) -> None:
+    ei = _edge_index(_CARVE_EDGES)
+    got = background.candidate_member_sets(ei, [0], [3], 5, max_hops=6)
+    # the ≤6-hop 0->3 path is {0,1,2,3}; endpoint 3 dropped; dead-end 4 excluded.
+    assert set(got) == {0}
+    np.testing.assert_array_equal(got[0], np.array([0, 1, 2], dtype=np.int64))
+    assert got[0].dtype == np.int64
+
+
+def test_candidate_member_sets_drops_endpoint(tmp_path: Path) -> None:
+    ei = _edge_index(_CARVE_EDGES)
+    got = background.candidate_member_sets(ei, [0], [3], 5, max_hops=6)
+    assert 3 not in set(got[0].tolist())  # endpoint never in a member set
+    assert 4 not in set(got[0].tolist())  # off-path dead end excluded
+
+
+def test_candidate_member_sets_respects_max_hops(tmp_path: Path) -> None:
+    ei = _edge_index(_CARVE_EDGES)
+    # candidate 0 is 3 hops from endpoint 3, candidate 1 is 2 hops.
+    got = background.candidate_member_sets(ei, [0, 1], [3], 5, max_hops=2)
+    assert set(got) == {0, 1}
+    np.testing.assert_array_equal(got[0], np.zeros(0, dtype=np.int64))  # unreachable -> empty
+    np.testing.assert_array_equal(got[1], np.array([1, 2], dtype=np.int64))
+
+
+def test_candidate_member_sets_dedups_candidates(tmp_path: Path) -> None:
+    ei = _edge_index(_CARVE_EDGES)
+    got = background.candidate_member_sets(ei, [0, 0], [3], 5, max_hops=6)
+    assert set(got) == {0}  # deduplicated
+
+
+def test_candidate_member_sets_bad_edge_index_raises(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="shape"):
+        background.candidate_member_sets(np.zeros((3, 4)), [0], [1], 5)
+
+
 def test_main_writes_npy(tmp_path: Path) -> None:
     axis = np.array([0.1, -0.2, 0.3, -0.4, 0.5])
     path = _write_features(tmp_path, axis, order=_SHUFFLE)
@@ -117,6 +166,11 @@ if __name__ == "__main__":
         test_typology_signal_noncontiguous_idx_raises,
         test_known_member_idx_union,
         test_known_member_idx_bounded,
+        test_candidate_member_sets_carve_equals_known,
+        test_candidate_member_sets_drops_endpoint,
+        test_candidate_member_sets_respects_max_hops,
+        test_candidate_member_sets_dedups_candidates,
+        test_candidate_member_sets_bad_edge_index_raises,
         test_main_writes_npy,
     ):
         with tempfile.TemporaryDirectory() as d:

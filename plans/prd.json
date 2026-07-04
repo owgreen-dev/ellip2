@@ -354,7 +354,8 @@
       "id": "T-027",
       "title": "Per-candidate subgraph carve (reachability)",
       "priority": "high",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         "ellip2.discovery.background.candidate_member_sets(edge_index, candidate_ids, endpoints, n_nodes, *, max_hops, frontier_cap, hubs): build directed adjacency once, bfs_reachable BACKWARD from endpoints once (global), per-candidate FORWARD bfs, carve survivors=fwd.reached & back.reached & (fwd.hops+back.hops<=max_hops); return {cand: member_idx array} with endpoint ids dropped.",
         "tests/test_background_discovery.py: synthetic graph -> carve equals known set; respects max_hops (unreachable -> empty).",
