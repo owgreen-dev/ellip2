@@ -36,6 +36,7 @@ Stage-4 leads/investigate layer consumes discovered structures unchanged.
 
 from __future__ import annotations
 
+import csv
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -81,23 +82,48 @@ def typology_signal_from_features(
     return signal
 
 
+def _allowed_ccids(split_csv: Path, split_name: str) -> set[str]:
+    """ccIds assigned to ``split_name`` in ``split.csv`` (columns ``id,label,split``)."""
+    with open(split_csv, newline="") as fh:
+        reader = csv.DictReader(fh)
+        fields = reader.fieldnames or []
+        if "split" not in fields or "id" not in fields:
+            raise ValueError(f"{split_csv} must have id,label,split columns")
+        return {row["id"] for row in reader if row["split"] == split_name}
+
+
 def known_member_idx(
     subgraphs_path: Path,
     *,
     n_nodes: int | None = None,
+    split_csv: Path | None = None,
+    split_name: str | None = None,
 ) -> npt.NDArray[np.int64]:
     """Sorted-unique union of every labeled subgraph's member cluster idxs.
 
     The exclusion set for background discovery: Gate 1 drops these already-known
     clusters so only NEW structures surface. Optionally bounded to ``[0, n_nodes)``.
+
+    When both ``split_csv`` and ``split_name`` are given, only subgraphs assigned to
+    ``split_name`` contribute members — so discovery can EXCLUDE only the train-split
+    members while leaving the held-out (e.g. test-suspicious) clusters seedable (the
+    held-out-recovery proxy eval, T-030).
     """
     import pyarrow.parquet as pq  # noqa: PLC0415
 
-    table = pq.read_table(subgraphs_path, columns=["member_idx"])
+    filter_split = split_csv is not None and split_name is not None
+    columns = ["ccId", "member_idx"] if filter_split else ["member_idx"]
+    table = pq.read_table(subgraphs_path, columns=columns)
+    members_col = table.column("member_idx").to_pylist()
+    if filter_split:
+        assert split_csv is not None  # narrowed by filter_split
+        allowed = _allowed_ccids(split_csv, str(split_name))
+        cc_ids = [str(v) for v in table.column("ccId").to_pylist()]
+        members_col = [
+            m for cc, m in zip(cc_ids, members_col, strict=True) if cc in allowed
+        ]
     parts = [
-        np.asarray(members, dtype=np.int64)
-        for members in table.column("member_idx").to_pylist()
-        if members
+        np.asarray(members, dtype=np.int64) for members in members_col if members
     ]
     if not parts:
         return np.zeros(0, dtype=np.int64)
@@ -171,13 +197,19 @@ def candidate_member_sets(
     endpoint_ids = _as_node_ids("endpoints", endpoints, n_nodes)
     hub_mask = _hub_mask(hubs, n_nodes)
 
+    # Build the directed adjacency `a` and its transpose `a_t` ONCE. The O(nnz)
+    # transpose of the (196M-nnz) background graph is the expensive step, so it must
+    # not recur per candidate. `a` is the forward step matrix for the backward sweep
+    # (which walks aᵀ's out-edges) and `a_t` is the step matrix for every per-candidate
+    # forward sweep (which walks a's out-edges) — see bfs_reachable's `step_matrix`.
     a = _build_directed_adjacency(ei, n_nodes)
     a_t = a.transpose().tocsr()
 
     # Global backward sweep from the endpoint set — identical for every candidate,
     # so compute it once and reuse.
     backward = bfs_reachable(
-        a_t, endpoint_ids, max_hops=max_hops, frontier_cap=frontier_cap, hub_mask=hub_mask
+        a_t, endpoint_ids, max_hops=max_hops, frontier_cap=frontier_cap,
+        hub_mask=hub_mask, step_matrix=a,
     )
 
     drop_endpoint = np.zeros(n_nodes, dtype=bool)
@@ -186,7 +218,8 @@ def candidate_member_sets(
     member_sets: dict[int, npt.NDArray[np.int64]] = {}
     for cand in candidates:
         forward = bfs_reachable(
-            a, [int(cand)], max_hops=max_hops, frontier_cap=frontier_cap, hub_mask=hub_mask
+            a, [int(cand)], max_hops=max_hops, frontier_cap=frontier_cap,
+            hub_mask=hub_mask, step_matrix=a_t,
         )
         both = forward.reached & backward.reached
         total = forward.hops + backward.hops  # valid only where both reached
@@ -481,6 +514,11 @@ def discover_main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--model", required=True, type=Path, help="border model checkpoint .pt")
     p.add_argument("--subgraphs", required=True, type=Path,
                    help="subgraphs.parquet (known-member exclusion set)")
+    p.add_argument("--split-csv", type=Path, default=None,
+                   help="split.csv; with --exclude-split, exclude only that split's members")
+    p.add_argument("--exclude-split", default=None,
+                   help="only exclude members of subgraphs in this split (e.g. 'train'), "
+                        "leaving held-out clusters seedable; requires --split-csv")
     p.add_argument("--typology-signal", type=Path, default=None, help="(N,) typology_signal.npy")
     p.add_argument("--out-subgraphs", required=True, type=Path)
     p.add_argument("--out-scores", required=True, type=Path)
@@ -501,7 +539,15 @@ def discover_main(argv: Sequence[str] | None = None) -> int:
     node_features = np.load(args.node_features, mmap_mode="r")
     endpoints = np.load(args.endpoints)
     typ = np.load(args.typology_signal) if args.typology_signal is not None else None
-    known = known_member_idx(args.subgraphs, n_nodes=n_nodes)
+    if args.exclude_split is not None and args.split_csv is None:
+        p.error("--exclude-split requires --split-csv")
+    known = known_member_idx(
+        args.subgraphs, n_nodes=n_nodes,
+        split_csv=args.split_csv, split_name=args.exclude_split,
+    )
+    if args.exclude_split is not None:
+        print(f"[discover] excluding only '{args.exclude_split}'-split members "
+              f"({known.size:,} clusters); held-out clusters remain seedable", flush=True)
 
     hubs = None
     if args.hub_degree is not None:

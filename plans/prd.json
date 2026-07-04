@@ -1,6 +1,6 @@
 {
   "repo": "local/ellip2",
-  "branchName": "ralph/discovery",
+  "branchName": "ralph/discovery-opt",
   "verifyCommand": "bash scripts/verify.sh",
   "acceptanceCriteria": [
     "bash scripts/verify.sh passes (pytest + ruff + mypy via .venv)",
@@ -376,6 +376,34 @@
         "bash scripts/verify.sh green"
       ],
       "notes": "Reuse candidate_member_sets(T-027), extract_border_sets/build_subgraph_batch/SupervisedSubgraphModel/load_checkpoint (score_border.py template). Emit existing schema so leads/investigate reuse unchanged."
+    },
+    {
+      "id": "T-029",
+      "title": "Optimize per-candidate reachability (reuse transposed step matrix)",
+      "priority": "high",
+      "passes": true,
+      "completed_at": "2026-07-04",
+      "acceptanceCriteria": [
+        "bfs_reachable (ellip2.exit_paths.path_search) accepts an optional precomputed step_matrix (== adjacency.transpose().tocsr()); when provided it SKIPS the per-call transpose (path_search.py:198) and uses it directly.",
+        "candidate_member_sets (ellip2.discovery.background) builds the transposed CSR ONCE and passes it as step_matrix to the single global backward sweep AND to every per-candidate forward sweep, so the O(nnz) transpose happens once, not per candidate.",
+        "Results IDENTICAL to before: a test asserts equal member sets with vs without the optimization, and that candidate_member_sets does not re-transpose per candidate (monkeypatch a transpose counter or equivalent structural assertion).",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "Root cause: bfs_reachable does adjacency.transpose().tocsr() EVERY call; candidate_member_sets calls it per candidate -> ~500x transpose of the 196M-nnz matrix (~49min real run). Forward step_matrix == a_t (already built for backward). Keep the public bfs_reachable API back-compatible (step_matrix optional)."
+    },
+    {
+      "id": "T-030",
+      "title": "Held-out-recovery proxy eval harness",
+      "priority": "high",
+      "passes": true,
+      "completed_at": "2026-07-04",
+      "acceptanceCriteria": [
+        "ellip2.discovery.eval_recovery: recovery_rate(discovered_member_sets, target_member_sets) -> fraction of TARGET subgraphs with >=1 member in any discovered member set, plus the random-baseline expectation (given |discovered union| / N). A CLI reads discovered_subgraphs.parquet + subgraphs.parquet + split.csv and reports recovery of the eval-split SUSPICIOUS subgraphs vs baseline. + scripts/eval_recovery.py shim.",
+        "discover_main / known_member_idx gain an optional split filter (e.g. --exclude-split train) so discovery can EXCLUDE only train-split members while leaving held-out (test-suspicious) clusters seedable.",
+        "tests/test_eval_recovery.py: recovery metric + baseline on synthetic; split-filtered exclusion excludes only the named split's members.",
+        "bash scripts/verify.sh green"
+      ],
+      "notes": "Proxy: cluster scorer trains on train-split members (test held out); run discovery excluding ONLY train members so test-suspicious clusters can be seeded; measure how many test-suspicious subgraphs are recovered by discovered candidates vs random. Label-free yardstick. The real eval RUN is a manual box step after the loop."
     }
   ]
 }

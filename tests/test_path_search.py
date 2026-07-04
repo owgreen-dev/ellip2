@@ -210,5 +210,30 @@ def test_validation_errors() -> None:
         bfs_reachable(a, seeds=[0], frontier_cap=0)
 
 
+# --------------------------------------------------------------------------- #
+# Precomputed step matrix (T-029): passing adjacencyᵀ skips the per-call
+# transpose and must be identical to computing it internally.
+# --------------------------------------------------------------------------- #
+def test_step_matrix_matches_internal_transpose() -> None:
+    a = _adjacency([(0, 1), (0, 2), (1, 3), (2, 3), (3, 4)], 5)
+    step = a.transpose().tocsr()
+    for seeds in ([0], [0, 2], [4]):
+        for cap in (None, 2):
+            base = bfs_reachable(a, seeds=seeds, max_hops=6, frontier_cap=cap)
+            opt = bfs_reachable(
+                a, seeds=seeds, max_hops=6, frontier_cap=cap, step_matrix=step
+            )
+            assert opt.reached.tolist() == base.reached.tolist()
+            assert opt.hops.tolist() == base.hops.tolist()
+            assert opt.capped_levels == base.capped_levels
+
+
+def test_step_matrix_shape_mismatch_raises() -> None:
+    a = _adjacency([(0, 1)], 2)
+    bad = _adjacency([(0, 1)], 3)  # 3x3 step matrix for a 2x2 adjacency
+    with pytest.raises(ValueError, match="step_matrix"):
+        bfs_reachable(a, seeds=[0], step_matrix=bad)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

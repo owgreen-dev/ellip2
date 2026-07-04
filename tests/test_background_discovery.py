@@ -148,6 +148,78 @@ def test_candidate_member_sets_bad_edge_index_raises(tmp_path: Path) -> None:
         background.candidate_member_sets(np.zeros((3, 4)), [0], [1], 5)
 
 
+# --- T-029: reuse the transposed step matrix across sweeps -------------------
+
+# A slightly richer graph so several candidates carve non-trivial member sets.
+#   0 -> 1 -> 2 -> 9,  3 -> 4 -> 9,  5 -> 6 -> 9,  plus a dead end 1 -> 8.
+_OPT_EDGES = [(0, 1), (1, 2), (2, 9), (3, 4), (4, 9), (5, 6), (6, 9), (1, 8)]
+_OPT_N = 10
+
+
+def _carve_without_opt(
+    ei: np.ndarray, cands: list[int], endpoints: list[int], n_nodes: int, *, max_hops: int
+) -> dict[int, np.ndarray]:
+    """Reference carve that never passes a precomputed step matrix (pre-T-029)."""
+    from ellip2.exit_paths.path_search import (
+        _as_node_ids,
+        _build_directed_adjacency,
+        bfs_reachable,
+    )
+
+    cand_ids = _as_node_ids("c", cands, n_nodes)
+    ep_ids = _as_node_ids("e", endpoints, n_nodes)
+    a = _build_directed_adjacency(ei.astype(np.int64), n_nodes)
+    backward = bfs_reachable(a.transpose().tocsr(), ep_ids, max_hops=max_hops)
+    drop = np.zeros(n_nodes, dtype=bool)
+    drop[ep_ids] = True
+    out: dict[int, np.ndarray] = {}
+    for c in cand_ids:
+        fwd = bfs_reachable(a, [int(c)], max_hops=max_hops)
+        surv = (
+            fwd.reached
+            & backward.reached
+            & ((fwd.hops + backward.hops) <= max_hops)
+            & ~drop
+        )
+        out[int(c)] = np.nonzero(surv)[0].astype(np.int64)
+    return out
+
+
+def test_candidate_member_sets_identical_with_and_without_opt() -> None:
+    ei = _edge_index(_OPT_EDGES)
+    cands = [0, 3, 5]
+    opt = background.candidate_member_sets(ei, cands, [9], _OPT_N, max_hops=6)
+    ref = _carve_without_opt(ei, cands, [9], _OPT_N, max_hops=6)
+    assert set(opt) == set(ref)
+    for c in cands:
+        np.testing.assert_array_equal(opt[c], ref[c])
+
+
+def test_candidate_member_sets_transposes_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scipy import sparse
+
+    counter = {"n": 0}
+    orig = sparse.csr_matrix.transpose
+
+    def counting_transpose(self, *a, **k):  # type: ignore[no-untyped-def]
+        counter["n"] += 1
+        return orig(self, *a, **k)
+
+    monkeypatch.setattr(sparse.csr_matrix, "transpose", counting_transpose)
+
+    ei = _edge_index(_OPT_EDGES)
+    counter["n"] = 0
+    background.candidate_member_sets(ei, [0], [9], _OPT_N, max_hops=6)
+    one = counter["n"]
+    counter["n"] = 0
+    background.candidate_member_sets(ei, [0, 3, 5], [9], _OPT_N, max_hops=6)
+    many = counter["n"]
+
+    # The O(nnz) transpose happens once per call regardless of candidate count —
+    # it does NOT scale with the number of candidates (pre-T-029 it did).
+    assert one == many
+
+
 def test_main_writes_npy(tmp_path: Path) -> None:
     axis = np.array([0.1, -0.2, 0.3, -0.4, 0.5])
     path = _write_features(tmp_path, axis, order=_SHUFFLE)
@@ -350,6 +422,7 @@ if __name__ == "__main__":
         test_discover_background_surfaces_novel_only,
         test_discover_background_typology_gate_optional,
         test_discover_background_excludes_known_even_with_top_score,
+        test_candidate_member_sets_identical_with_and_without_opt,
     ):
         fn0()
     print("ok")
