@@ -477,7 +477,8 @@
       "id": "T-036",
       "title": "CI workflow (verify.sh on push/PR)",
       "priority": "low",
-      "passes": false,
+      "passes": true,
+      "completed_at": "2026-07-04",
       "acceptanceCriteria": [
         ".github/workflows/ci.yml: on push+pull_request, sets up Python 3.11+, creates a venv / installs the package + dev deps, runs `bash scripts/verify.sh`.",
         "tests/test_docs.py: the workflow file exists and is valid YAML (yaml.safe_load succeeds) with a jobs section.",

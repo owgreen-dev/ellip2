@@ -192,3 +192,19 @@ def test_reproduce_documents_cli_sequence() -> None:
         assert cli in text, f"repro doc must mention the {cli} CLI"
         positions.append(text.index(cli))
     assert positions == sorted(positions), "repro doc must list the CLIs in pipeline order"
+
+
+# --- T-036: CI workflow (verify.sh on push/PR) ---
+
+
+def test_ci_workflow_valid() -> None:
+    """.github/workflows/ci.yml must exist, be valid YAML, and define a jobs section."""
+    import yaml
+
+    path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+    assert path.is_file(), ".github/workflows/ci.yml must exist"
+    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert isinstance(workflow, dict), "ci.yml must parse to a mapping"
+    assert workflow.get("jobs"), "ci.yml must define a non-empty jobs section"
+    body = path.read_text(encoding="utf-8")
+    assert "verify.sh" in body, "ci.yml must run the verify.sh gate"
