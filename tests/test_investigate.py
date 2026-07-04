@@ -93,10 +93,25 @@ def test_investigate_writes_full_cards(tmp_path: Path) -> None:
     assert "![subgraph" in top                       # embedded graph image
 
 
+def test_investigate_with_real_exit_paths(tmp_path: Path) -> None:
+    a = _write(tmp_path)
+    # node 8 is reachable from subgraph b's member 2 (edge 2->8); make it the endpoint
+    np.save(tmp_path / "endpoints.npy", np.array([8], dtype=np.int64))
+    out = tmp_path / "cards_ep"
+    investigate(a["scores"], a["subgraphs"], a["edge_index"], a["node_features"], out,
+                classifier=heuristic_classifier, split="test", top_k=2,
+                endpoints_path=tmp_path / "endpoints.npy", max_hops=6)
+    # the licit subgraph b (cc 'b', member 2) reaches endpoint 8 in one hop
+    card_b = next(p for p in out.glob("card_*.md") if "ccb" in p.name).read_text()
+    assert "Stage-3 reachability" in card_b
+    assert "8" in card_b.split("## Structural evidence")[0]   # endpoint in the exit-path section
+
+
 if __name__ == "__main__":
     import tempfile
     test_heuristic_classifier_returns_valid_typology()
-    for t in (test_candidate_has_roles_and_exit_path, test_investigate_writes_full_cards):
+    for t in (test_candidate_has_roles_and_exit_path, test_investigate_writes_full_cards,
+              test_investigate_with_real_exit_paths):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
     print("ok")

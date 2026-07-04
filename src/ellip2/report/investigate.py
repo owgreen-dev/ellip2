@@ -28,6 +28,8 @@ from typing import Any
 import networkx as nx
 import numpy as np
 
+from ellip2.exit_paths.path_search import MAX_HOPS
+from ellip2.exit_paths.recover import recover_exit_paths
 from ellip2.llm.bedrock_client import TYPOLOGIES, TypologyResult
 from ellip2.llm.serialize_subgraph import CandidateSubgraph, SubgraphEdge, SubgraphNode
 from ellip2.llm.typology_graph import classify_candidate
@@ -122,20 +124,44 @@ def candidate_from_graph(
     node_features: np.ndarray | None,
     *,
     max_feat: int = 8,
+    exit_path: list[int] | None = None,
 ) -> CandidateSubgraph:
-    """Build an LLM-layer :class:`CandidateSubgraph` from a lead's border graph."""
-    nodes = []
-    for n, data in g.nodes(data=True):
-        if node_features is not None:
-            feats = [float(v) for v in np.asarray(node_features[n])[:max_feat]]
-        else:
-            feats = []
-        nodes.append(SubgraphNode(node_id=int(n), role=str(data.get("role", "internal")),
-                                  features=feats))
-    edges = [SubgraphEdge(source=int(u), target=int(v)) for u, v in g.edges()]
+    """Build an LLM-layer :class:`CandidateSubgraph` from a lead's border graph.
+
+    When a real Stage-3 ``exit_path`` (member → licit endpoint via the background graph) is
+    given, its off-subgraph nodes are added (role ``conduit``, final ``endpoint``) with edges,
+    so the serialized candidate — and thus the LLM — sees the corroborating path. Otherwise a
+    local within-subgraph path is used.
+    """
+    def feats_of(n: int) -> list[float]:
+        if node_features is None:
+            return []
+        return [float(v) for v in np.asarray(node_features[n])[:max_feat]]
+
+    in_g = set(g.nodes)
+    nodes = [
+        SubgraphNode(node_id=int(n), role=str(d.get("role", "internal")), features=feats_of(n))
+        for n, d in g.nodes(data=True)
+    ]
+    edges = {(int(u), int(v)) for u, v in g.edges()}
+
+    if exit_path and len(exit_path) >= 2:
+        seen = set(in_g)
+        for i, n in enumerate(exit_path):
+            if n not in seen:
+                role = "endpoint" if i == len(exit_path) - 1 else "conduit"
+                nodes.append(SubgraphNode(node_id=int(n), role=role, features=feats_of(n)))
+                seen.add(n)
+        for i in range(len(exit_path) - 1):
+            edges.add((int(exit_path[i]), int(exit_path[i + 1])))
+        exit_paths: list[list[int]] = [[int(x) for x in exit_path]]
+    else:
+        exit_paths = _exit_path(g)
+
     return CandidateSubgraph(
-        subgraph_id=int(subgraph_id), pu_score=float(pu_score),
-        nodes=nodes, edges=edges, exit_paths=_exit_path(g), stats=_graph_stats(g),
+        subgraph_id=int(subgraph_id), pu_score=float(pu_score), nodes=nodes,
+        edges=[SubgraphEdge(source=s, target=t) for s, t in sorted(edges)],
+        exit_paths=exit_paths, stats=_graph_stats(g),
     )
 
 
@@ -147,14 +173,18 @@ def _int_id(cc_id: str, position: int) -> int:
 
 
 def render_card(lead: Lead, g: nx.DiGraph, node_features: np.ndarray | None,
-                classifier: Any) -> str:
+                classifier: Any, *, exit_path: list[int] | None = None) -> str:
     """Serialize → classify → validate → render one full investigative card (Markdown)."""
     candidate = candidate_from_graph(g, _int_id(lead.cc_id, lead.position), lead.score,
-                                     node_features)
+                                     node_features, exit_path=exit_path)
     classification = classify_candidate(candidate, classifier)
+    endpoint_type = (
+        "heuristic licit endpoint (Stage-3 reachability)"
+        if exit_path and len(exit_path) >= 2 else _ENDPOINT_TYPE
+    )
     report = report_from_classification(
         candidate, classification, pu_percentile=lead.percentile,
-        endpoint_type=_ENDPOINT_TYPE, structural_evidence=candidate.stats,
+        endpoint_type=endpoint_type, structural_evidence=candidate.stats,
     )
     return render_report(report)
 
@@ -170,6 +200,9 @@ def investigate(
     split: str | None = None,
     top_k: int = 12,
     max_border: int = 12,
+    endpoints_path: Path | None = None,
+    max_hops: int = MAX_HOPS,
+    frontier_cap: int | None = None,
 ) -> list[Lead]:
     """Write a full investigative card (Markdown + PNG) per top lead into ``out_dir``."""
     leads = rank_leads(border_scores, split=split, top_k=top_k)
@@ -185,8 +218,19 @@ def investigate(
     )
     n_nodes = int(edge_index.max()) + 1 if edge_index.size else 0
     n_nodes = max(n_nodes, max((int(m.max()) + 1 for m in members if m.size), default=0))
-    graphs = extract_lead_graphs([ld.position for ld in leads], members, edge_index,
-                                 n_nodes, max_border=max_border)
+    positions = [ld.position for ld in leads]
+    graphs = extract_lead_graphs(positions, members, edge_index, n_nodes, max_border=max_border)
+
+    exit_paths: dict[int, list[int]] = {}
+    if endpoints_path is not None:
+        endpoints = np.load(endpoints_path)
+        exit_paths = recover_exit_paths(
+            edge_index, members, positions, endpoints, n_nodes,
+            max_hops=max_hops, frontier_cap=frontier_cap,
+        )
+        n_corrob = sum(1 for p in positions if len(exit_paths.get(p, [])) >= 2)
+        print(f"[investigate] Stage-3 exit paths: {n_corrob}/{len(leads)} leads reach a "
+              f"licit endpoint within {max_hops} hops", flush=True)
     out_dir.mkdir(parents=True, exist_ok=True)
     index = ["# Investigative report cards (border model + typology)", "",
              f"Top {len(leads)} subgraphs by border score"
@@ -196,7 +240,7 @@ def investigate(
         g = graphs[ld.position]
         stem = f"card_{rank:03d}_cc{ld.cc_id}"
         render_lead_png(g, out_dir / f"{stem}.png", f"subgraph {ld.cc_id}  score={ld.score:.3f}")
-        card = render_card(ld, g, node_features, classifier)
+        card = render_card(ld, g, node_features, classifier, exit_path=exit_paths.get(ld.position))
         card += f"\n\n![subgraph {ld.cc_id}]({stem}.png)\n"
         (out_dir / f"{stem}.md").write_text(card)
         index.append(f"{rank}. **{ld.cc_id}** — score {ld.score:.4g} "
@@ -233,6 +277,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--node-features", type=Path, default=None,
                    help="node_features.npy (enables binned node features in the LLM prompt)")
     p.add_argument("--out-dir", required=True, type=Path)
+    p.add_argument("--endpoints", type=Path, default=None,
+                   help="endpoints.npy (Stage 3) — enables real reachability exit paths")
+    p.add_argument("--max-hops", type=int, default=MAX_HOPS)
+    p.add_argument("--frontier-cap", type=int, default=None)
     p.add_argument("--split", default="test")
     p.add_argument("--top-k", type=int, default=12)
     p.add_argument("--max-border", type=int, default=12)
@@ -248,6 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.border_scores, args.subgraphs, args.edge_index, args.node_features,
         args.out_dir, classifier=classifier,
         split=(args.split or None), top_k=args.top_k, max_border=args.max_border,
+        endpoints_path=args.endpoints, max_hops=args.max_hops, frontier_cap=args.frontier_cap,
     )
     print(f"[investigate] wrote {len(leads)} report cards -> {args.out_dir}/index.md "
           f"(classifier={args.llm})")
