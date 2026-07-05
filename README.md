@@ -66,6 +66,14 @@ path. Example (a novel lead the pipeline **discovered**, score 1.0):
 
 More discovered-lead cards in [`docs/examples/`](docs/examples/).
 
+**What fraud looks like** — a visual [demo](docs/examples/DEMO.md) over ~32K clusters (labeled
+suspicious / licit / background / discovered). The detector's score separates known fraud, and the
+**discovered anomalies match the fraud distribution, not the background**:
+
+![Fraud vs. not — suspicion-score distributions for labeled and discovered clusters](docs/examples/demo_scores.png)
+
+Full anatomy (feature fingerprints + a 2D node map) in [`docs/examples/DEMO.md`](docs/examples/DEMO.md).
+
 ## Pipeline
 
 ```
