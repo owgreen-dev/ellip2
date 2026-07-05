@@ -25,7 +25,8 @@ reachability carve toward heuristic licit endpoints, and a one-at-a-time border 
 
 ## Results
 
-Detection progression on our own stratified 80/10/10 split (test PR-AUC):
+Detection progression on stratified 80/10/10 splits (test PR-AUC), each row a distinct
+modeling choice:
 
 | Model | test PR-AUC |
 |---|---|
@@ -33,22 +34,25 @@ Detection progression on our own stratified 80/10/10 split (test PR-AUC):
 | pooled-features HGBM | 0.286 |
 | border model, nodes only | 0.816 |
 | border model + internal edge features | 0.844 |
-| **border model, tuned** | **0.942** |
+| **border model, tuned** | **0.911 ± 0.009** |
 
-Tuned border model full metrics: **PR-AUC 0.942, F1 0.854, recall 0.935**.
+The tuned border model scores **PR-AUC 0.911 ± 0.009** across 5 stratified splits with
+**best-of-3 validation-based model selection** (best single split 0.942). Selection matters:
+a *single* run is unstable — 1 in 5 fresh splits collapses to ~0.38 — so we keep the
+best-validation restart (`train_border --restarts`). See [RESULTS.md](RESULTS.md) for the
+full robustness analysis.
 
 Named-table baseline comparison — **RevTrack Table 1 (GPU + node features)**:
 
 | Model | PR-AUC | F1 |
 |---|---|---|
 | RevClassify_DS (SOTA, border Deep Sets) | 0.974 | 0.953 |
-| **Ours (tuned border)** | **0.942** | **0.854** |
+| **Ours (border, best-of-3, 5-split)** | **0.911 ± 0.009** | 0.78 (0.89 val-tuned) |
 | GLASS | 0.816 | 0.705 |
 
-Ours beats GLASS on both metrics and trails RevClassify_DS by ~0.03 PR-AUC (same
-border-Deep-Sets architecture, reimplemented from scratch). This is an **approximate,
-different-split** comparison, not an identical-split one — see [RESULTS.md](RESULTS.md)
-for caveats.
+Ours beats GLASS and trails RevClassify_DS by ~0.06 PR-AUC (same border-Deep-Sets
+architecture, reimplemented from scratch). This is an **approximate, different-split**
+comparison, not identical-split — see [RESULTS.md](RESULTS.md) for caveats.
 
 **Discovery:** 208 novel candidate subgraphs surfaced from the 49.3M-cluster background;
 held-out-recovery proxy eval re-found **5 of 276** held-out test-suspicious subgraphs
@@ -129,9 +133,11 @@ fixtures.
 
 - Discovery recall is low (1.8%, top-500 candidates only); raising top-K trades compute
   for recall.
-- Single-split evaluation — no multi-seed / multi-fold variance bars yet.
-- The baseline comparison uses a different split than RevTrack (approximate, not
-  identical-split).
+- **Training instability**: a single border-model run collapses ~1 in 5 times (degenerate
+  all-positive). We mitigate with best-of-N validation-based selection (`--restarts`); the
+  reported 0.911 ± 0.009 uses best-of-3.
+- The baseline comparison uses a **different split** than RevTrack (approximate, not
+  identical-split — their exact random split has no published seed).
 - The per-cluster suspicion scorer that drives discovery is weak (test-member PR-AUC
   0.127).
 - LLM typologies are unvalidated — the dataset has no ground-truth typology labels.
