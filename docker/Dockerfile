@@ -21,7 +21,7 @@ WORKDIR /opt/ellip2
 # Install our package's CPU-only data deps first (cached layer). These are the core
 # deps only (duckdb/numpy/pyarrow) — NOT the `gpu` extra — so the DLC's torch stays
 # untouched.
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --no-cache-dir -e .
 
