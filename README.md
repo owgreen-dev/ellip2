@@ -58,6 +58,14 @@ comparison, not identical-split — see [RESULTS.md](RESULTS.md) for caveats.
 held-out-recovery proxy eval re-found **5 of 276** held-out test-suspicious subgraphs
 (**1.8% recall**) against a random baseline of 0.0001 → **121× lift**.
 
+Each lead is rendered as an investigative card — a **border graph** (external *senders* →
+*internal* cluster → external *receivers*) plus an LLM typology and a corroborating exit
+path. Example (a novel lead the pipeline **discovered**, score 1.0):
+
+![Discovered fraud subgraph bg25364052 — senders (orange) fund an internal cluster (blue) that pays out to receivers (green)](docs/examples/card_005_ccbg25364052.png)
+
+More discovered-lead cards in [`docs/examples/`](docs/examples/).
+
 ## Pipeline
 
 ```
