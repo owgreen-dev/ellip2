@@ -29,7 +29,7 @@ import pyarrow.parquet as pq
 import torch
 
 from ellip2.data import schema
-from ellip2.eval.pu_metrics import pu_metric_report
+from ellip2.eval.pu_metrics import pr_auc, pu_metric_report
 from ellip2.pu.border_assembly import (
     build_subgraph_batch,
     extract_border_sets,
@@ -38,6 +38,7 @@ from ellip2.pu.border_assembly import (
     load_internal_edge_features,
 )
 from ellip2.pu.trainer import (
+    SubgraphBatch,
     SupervisedSubgraphModel,
     save_checkpoint,
     train_supervised,
@@ -87,6 +88,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     p.add_argument("--weight-decay", type=float, default=1e-4)
     p.add_argument("--device", default="cpu")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--restarts", type=int, default=1,
+                   help="train N restarts (varying init seed) and keep the best-VAL model; "
+                        "rejects the occasional degenerate/collapsed run")
+    p.add_argument("--val-split", default="val",
+                   help="split used to select the best restart (needs to be non-empty when "
+                        "--restarts > 1)")
     args = p.parse_args(argv)
 
     torch.manual_seed(args.seed)
@@ -127,33 +134,65 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"[train_border] internal edges: {n_edge_rows:,} rows over "
               f"{len(edge_feats):,} subgraphs, edge_dim={edim} (edge channel ON)", flush=True)
 
-    batch = build_subgraph_batch(tr, border, node_features, mean=mean, std=std, edge_dim=edim,
-                                 edge_features_by_sg=edge_feats, edge_mean=edge_mean,
-                                 edge_std=edge_std)
-    y = torch.from_numpy(labels[tr].astype(np.float32))
-
-    model = SupervisedSubgraphModel(
-        node_dim, edim,
-        set_hidden=args.set_hidden, set_out=args.set_out, mlp_hidden=tuple(args.mlp_hidden),
-    ).to(device)
-    print(f"[train_border] train={len(tr):,} (pos={n_pos}, pos_weight={pos_weight:.1f}) "
-          f"eval={args.eval_split}({len(ev):,}) senders={batch.sender_x.shape[0]:,} "
-          f"receivers={batch.receiver_x.shape[0]:,} internal={batch.node_x.shape[0]:,}", flush=True)
-
-    history, optimizer = train_supervised(
-        model, batch, y, epochs=args.epochs, lr=args.lr,
-        weight_decay=args.weight_decay, pos_weight=pos_weight,
-    )
-    print(f"[train_border] BCE {history.first:.4f} -> {history.last:.4f}", flush=True)
-
-    if ev.size:
-        eval_batch = build_subgraph_batch(
-            ev, border, node_features, mean=mean, std=std, edge_dim=edim,
+    def _batch(idx: np.ndarray) -> SubgraphBatch:
+        return build_subgraph_batch(
+            idx, border, node_features, mean=mean, std=std, edge_dim=edim,
             edge_features_by_sg=edge_feats, edge_mean=edge_mean, edge_std=edge_std,
         )
+
+    train_batch = _batch(tr)
+    y = torch.from_numpy(labels[tr].astype(np.float32))
+    val = np.flatnonzero(split == args.val_split)
+    if args.restarts > 1 and val.size == 0:
+        raise SystemExit(
+            f"--restarts {args.restarts} needs a non-empty '{args.val_split}' split to select on"
+        )
+    val_batch = _batch(val) if val.size else None
+    print(f"[train_border] train={len(tr):,} (pos={n_pos}, pos_weight={pos_weight:.1f}) "
+          f"val={args.val_split}({val.size:,}) eval={args.eval_split}({len(ev):,}) "
+          f"restarts={args.restarts} senders={train_batch.sender_x.shape[0]:,} "
+          f"receivers={train_batch.receiver_x.shape[0]:,} "
+          f"internal={train_batch.node_x.shape[0]:,}", flush=True)
+
+    # Best-of-N restarts with validation-based selection: a collapsed run (degenerate
+    # all-positive) has a low val PR-AUC, so it is never selected. Isolates init variance —
+    # border sets and the standardizer are shared; only the model init seed varies.
+    model: SupervisedSubgraphModel | None = None
+    optimizer: torch.optim.Optimizer | None = None
+    best_sel = -np.inf
+    best_r = -1
+    for r in range(args.restarts):
+        torch.manual_seed(args.seed + r)
+        cand = SupervisedSubgraphModel(
+            node_dim, edim, set_hidden=args.set_hidden, set_out=args.set_out,
+            mlp_hidden=tuple(args.mlp_hidden),
+        ).to(device)
+        history, opt = train_supervised(
+            cand, train_batch, y, epochs=args.epochs, lr=args.lr,
+            weight_decay=args.weight_decay, pos_weight=pos_weight,
+        )
+        if val_batch is not None:
+            cand.eval()
+            with torch.no_grad():
+                vscores = torch.sigmoid(cand(val_batch)).cpu().numpy()
+            sel = float(pr_auc(labels[val], vscores))
+            selmsg = f"val_prauc={sel:.4f}"
+        else:
+            sel = -float(history.last)  # no val split: prefer the lowest final BCE
+            selmsg = f"final_bce={history.last:.4f}"
+        print(f"[train_border] restart {r} (seed {args.seed + r}): "
+              f"BCE {history.first:.4f}->{history.last:.4f} {selmsg}", flush=True)
+        if sel > best_sel:
+            best_sel, model, optimizer, best_r = sel, cand, opt, r
+    assert model is not None and optimizer is not None
+    if args.restarts > 1:
+        print(f"[train_border] selected restart {best_r} (best val_prauc={best_sel:.4f})",
+              flush=True)
+
+    if ev.size:
         model.eval()
         with torch.no_grad():
-            scores = torch.sigmoid(model(eval_batch)).cpu().numpy()
+            scores = torch.sigmoid(model(_batch(ev))).cpu().numpy()
         report = pu_metric_report(scores, labels[ev])
         base = float(labels[ev].mean())
         print(f"[train_border] eval ({args.eval_split}, n={ev.size:,}, base_rate={base:.4f}): "

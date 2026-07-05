@@ -118,6 +118,41 @@ def test_train_then_score_border_separates(tmp_path: Path) -> None:
     assert np.mean(te_susp) > np.mean(te_lic)   # border signal recovered on held-out
 
 
+def _rewrite_split_with_val(split_csv: Path, n_sub: int = 60) -> None:
+    """Rewrite split.csv as train (k%10<6) / val (6-7) / test (8-9), both classes each."""
+    with open(split_csv, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["id", "label", "split"])
+        for k in range(n_sub):
+            label = "suspicious" if k % 2 == 0 else "licit"
+            s = "train" if (k % 10) < 6 else ("val" if (k % 10) < 8 else "test")
+            w.writerow([f"cc{k}", label, s])
+
+
+def test_train_border_restarts_selects_by_val(tmp_path: Path) -> None:
+    a = _write(tmp_path)
+    _rewrite_split_with_val(a["split"])
+    model = tmp_path / "border_r.pt"
+    rc = train_border.main([
+        "--artifacts-dir", str(a["artifacts"]), "--subgraphs", str(a["subgraphs"]),
+        "--split-csv", str(a["split"]), "--out", str(model),
+        "--epochs", "80", "--set-hidden", "16", "--set-out", "8", "--border-cap", "8",
+        "--restarts", "3", "--val-split", "val",
+    ])
+    assert rc == 0 and model.is_file()   # best-of-3 by val, checkpoint written
+
+
+def test_train_border_restarts_requires_val(tmp_path: Path) -> None:
+    import pytest
+    a = _write(tmp_path)   # split has train/test only, no "val"
+    with pytest.raises(SystemExit):
+        train_border.main([
+            "--artifacts-dir", str(a["artifacts"]), "--subgraphs", str(a["subgraphs"]),
+            "--split-csv", str(a["split"]), "--out", str(tmp_path / "x.pt"),
+            "--epochs", "5", "--restarts", "2", "--val-split", "val",
+        ])
+
+
 if __name__ == "__main__":
     import tempfile
     test_extract_border_sets_directionality()
@@ -125,4 +160,8 @@ if __name__ == "__main__":
     test_build_batch_shapes()
     with tempfile.TemporaryDirectory() as d:
         test_train_then_score_border_separates(Path(d))
+    with tempfile.TemporaryDirectory() as d:
+        test_train_border_restarts_selects_by_val(Path(d))
+    with tempfile.TemporaryDirectory() as d:
+        test_train_border_restarts_requires_val(Path(d))
     print("ok")
