@@ -175,7 +175,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             cand.eval()
             with torch.no_grad():
                 vscores = torch.sigmoid(cand(val_batch)).cpu().numpy()
-            sel = float(pr_auc(labels[val], vscores))
+            sel = float(pr_auc(vscores, labels[val]))   # pr_auc(scores, labels)
             selmsg = f"val_prauc={sel:.4f}"
         else:
             sel = -float(history.last)  # no val split: prefer the lowest final BCE

@@ -133,10 +133,13 @@ def test_train_border_restarts_selects_by_val(tmp_path: Path) -> None:
     a = _write(tmp_path)
     _rewrite_split_with_val(a["split"])
     model = tmp_path / "border_r.pt"
+    # Few epochs on purpose: keeps val sigmoids non-saturated (continuous, not exact 0/1),
+    # so the val-PR-AUC selection call exercises pr_auc(scores, labels) with real args —
+    # a swapped argument order would raise on the non-binary "labels".
     rc = train_border.main([
         "--artifacts-dir", str(a["artifacts"]), "--subgraphs", str(a["subgraphs"]),
         "--split-csv", str(a["split"]), "--out", str(model),
-        "--epochs", "80", "--set-hidden", "16", "--set-out", "8", "--border-cap", "8",
+        "--epochs", "15", "--set-hidden", "16", "--set-out", "8", "--border-cap", "8",
         "--restarts", "3", "--val-split", "val",
     ])
     assert rc == 0 and model.is_file()   # best-of-3 by val, checkpoint written
