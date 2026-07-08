@@ -1,5 +1,19 @@
 # ellip2 — Money-laundering subgraph detection & discovery on Elliptic2
 
+[![CI](https://github.com/owgreen-dev/ellip2/actions/workflows/ci.yml/badge.svg)](https://github.com/owgreen-dev/ellip2/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Data: CC BY-NC-ND 4.0](https://img.shields.io/badge/data-CC%20BY--NC--ND%204.0-lightgrey.svg)](DATA.md)
+[![PR-AUC 0.911](https://img.shields.io/badge/PR--AUC-0.911%20%C2%B1%200.009-brightgreen.svg)](RESULTS.md)
+[![Discovery lift 121×](https://img.shields.io/badge/discovery%20lift-121%C3%97-orange.svg)](RESULTS.md)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
+> **Read a Bitcoin subgraph, score how much it looks like money laundering — then find the
+> ones nobody labeled.** A from-scratch **border Deep Sets** detector reaches **PR-AUC
+> 0.911 ± 0.009** on Elliptic2's 121,810 labeled subgraphs (beats GLASS, trails published
+> SOTA by ~0.06 same-architecture), then **discovers** novel suspicious structures in a
+> **49.3M-cluster** unlabeled background at **121× lift** over random.
+
 A research pipeline for anti-money-laundering (AML) analysis of the **Elliptic2** Bitcoin
 dataset. It does two things on the 121,810 labeled connected components and the ~48.8M
 unlabeled background clusters:
@@ -11,6 +25,17 @@ unlabeled background clusters:
 
 Everything runs offline on CPU for the tests; the real end-to-end run is a GPU box step.
 See [RESULTS.md](RESULTS.md) for the full metrics table and baseline comparison.
+
+## Why this matters now
+
+Blockchain laundering is an active enforcement front, not a solved problem. The typologies
+this pipeline scores for — layering flows through intermediary clusters, fan-in/fan-out
+structuring, exit toward cash-out endpoints — are the same mechanics behind live cases:
+**pig-butchering** rings moving victim funds, **sanctions-linked** laundering (mixers and
+bridge hops), and the wave of **FinCEN** advisories pushing institutions from
+transaction-level to *network-level* monitoring. The hard part in practice isn't scoring a
+subgraph someone already flagged — it's **surfacing the ones nobody labeled**. That
+discovery stage, not the leaderboard number, is the point of this repo.
 
 ## Overview
 
@@ -74,6 +99,31 @@ suspicious / licit / background / discovered). The detector's score separates kn
 
 Full anatomy (feature fingerprints + a 2D node map) in [`docs/examples/DEMO.md`](docs/examples/DEMO.md).
 
+## What breaks in the wild
+
+Elliptic2 is a curated academic benchmark, so the fair first challenge is *"you benchmarked
+on a benchmark."* Here is what a 0.911 PR-AUC does **not** promise in production, and how the
+design anticipates it:
+
+- **Label leakage / temporal realism.** The published splits are stratified, not
+  strictly time-ordered. Real deployment must train only on the past — so the repo carries
+  explicit leakage checks (`eval/leakage_checks`) and the discovery stage is evaluated by
+  *held-out recovery*, which is a harder, more deployment-like proxy than in-split PR-AUC.
+- **Distribution shift.** Labels reflect one snapshot of one chain's typologies. New
+  cash-out venues, chains, and bridges shift the feature distribution; the honest read is
+  that the border model would need periodic re-fit and the per-cluster scorer (already the
+  weak link at PR-AUC 0.127) degrades first. This is why leads are ranked and
+  human-reviewed via evidence cards rather than auto-actioned.
+- **Adversarial adaptation.** Once a structural detector is known, launderers restructure —
+  smaller subgraphs, padded licit-looking flows, split exits. The border framing (external
+  senders/receivers + exit-path corroboration) is chosen precisely because it keys on flow
+  *shape* rather than a memorizable fingerprint, but no structural detector is
+  adversarially stable on its own; it's a lead-generation layer, not a verdict.
+
+The takeaway isn't "this generalizes for free" — it's that the pipeline is built to fail
+*loudly* (leakage checks, recovery proxy, ranked human-in-the-loop leads) rather than
+quietly overfit a leaderboard.
+
 ## Pipeline
 
 ```
@@ -101,12 +151,21 @@ This repo uses `uv` and a project `.venv` (no system pip):
 uv venv .venv
 uv pip install --python .venv/bin/python -e '.[dev]'
 
+# See it work end-to-end in <2 min, zero credentials, CPU only:
+# trains the real border detector on a synthetic graph and renders an
+# investigative card into demo_out/ (no Kaggle download, no AWS/Bedrock).
+make demo            # or: .venv/bin/python scripts/demo.py
+
 # run the full gate (pytest + ruff + mypy)
-bash scripts/verify.sh
+bash scripts/verify.sh   # or: make verify
 
 # or just the tests
-.venv/bin/python -m pytest -q
+.venv/bin/python -m pytest -q   # or: make test
 ```
+
+The `make demo` card is the same layout as the discovered-lead cards above (border graph +
+structural typology + exit-path corroboration + caveats) — see a full one narrated in the
+[investigator walkthrough](docs/examples/WALKTHROUGH.md).
 
 ## Data
 
@@ -125,6 +184,16 @@ The real, GPU-scale end-to-end run (ingest → split → features → train/scor
 eval) is documented in [RUNBOOK.md](RUNBOOK.md), including the AWS instance and cost notes.
 The offline CPU test suite (`bash scripts/verify.sh`) exercises every module on synthetic
 fixtures.
+
+**No hand-typed numbers.** Every headline metric in this README and [RESULTS.md](RESULTS.md)
+is asserted against a single machine-readable source of truth, [`facts.json`](facts.json), by
+[`tests/test_published_numbers.py`](tests/test_published_numbers.py) — which runs in the CI
+gate, so the build fails if a quoted number drifts from the canonical value. Run it alone with
+`make check-numbers`.
+
+The design decisions behind the pipeline — why the border model over a GNN, why best-of-N
+restart selection, why the discovery cascade — are written up as ADRs in
+[docs/decisions.md](docs/decisions.md).
 
 ## Repo layout
 
@@ -157,6 +226,31 @@ fixtures.
 - The per-cluster suspicion scorer that drives discovery is weak (test-member PR-AUC
   0.127).
 - LLM typologies are unvalidated — the dataset has no ground-truth typology labels.
+
+## Part of a method family
+
+Same methodology, different domain: **public data → detectors → enforcement labels → PU
+benchmarks**. ellip2 is the **graph** instance of that recipe — the border framing and the
+bounded ≤k-hop exit-path carve are the reusable pieces.
+
+- **[relief-probe](https://github.com/owgreen-dev/relief-probe)** — the tabular instance:
+  finding fraud leads in **11.4M public PPP loans**, validated against real DOJ prosecutions
+  (**23.8× lift at k=500**), honest about what works and what doesn't.
+- **tranship-probe** *(planned)* — the trade/transshipment instance: entity resolution and
+  ring expansion over shipping records. Its Level-2 roadmap reuses ellip2's graph techniques
+  (border scoring, ring-expansion carve) directly.
+
+Each repo takes the same discipline to a different public dataset; together they're a body of
+work, not three one-offs.
+
+## Disclaimer
+
+This project **surfaces investigative leads, not findings or accusations.** It uses only
+public / benchmark data (Elliptic2), establishes no wrongdoing about any entity, and is not
+affiliated with any enforcement body. Every lead is a model output requiring human review —
+the scores are positive-unlabeled lower bounds, and node roles / endpoint types are derived
+heuristics, not ground-truth labels. See the per-card caveats in
+[`docs/examples/`](docs/examples/).
 
 ## License
 
