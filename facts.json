@@ -1,0 +1,20 @@
+{
+  "_comment": "Canonical published numbers for ellip2 — the SINGLE machine-readable source of truth. README.md and RESULTS.md are asserted against these strings by tests/test_published_numbers.py (run in the CI gate). Do not hand-edit a number in the docs without changing it here first; the build fails on drift. Values are the exact rendered substrings that must appear verbatim in the listed docs.",
+  "facts": [
+    { "value": "0.911 ± 0.009", "in": ["README.md", "RESULTS.md"], "desc": "Detection headline: tuned border model, robust mean PR-AUC across 5 stratified splits (best-of-3 val selection)." },
+    { "value": "0.942", "in": ["README.md", "RESULTS.md"], "desc": "Detection: best single-split test PR-AUC for the tuned border model." },
+    { "value": "0.816", "in": ["README.md", "RESULTS.md"], "desc": "Baseline: GLASS PR-AUC (RevTrack Table 1, GPU + node features)." },
+    { "value": "0.974", "in": ["README.md", "RESULTS.md"], "desc": "Baseline: RevClassify_DS SOTA PR-AUC (border Deep Sets)." },
+    { "value": "0.127", "in": ["README.md", "RESULTS.md"], "desc": "Per-cluster suspicion scorer (drives discovery): weak test-member PR-AUC." },
+    { "value": "121×", "in": ["README.md", "RESULTS.md"], "desc": "Discovery: held-out-recovery lift over the 0.0001 random baseline." },
+    { "value": "1.8%", "in": ["README.md", "RESULTS.md"], "desc": "Discovery: held-out-recovery recall (5 of 276 test-suspicious subgraphs re-found)." },
+    { "value": "5 of 276", "in": ["README.md", "RESULTS.md"], "desc": "Discovery: recovered / held-out test-suspicious subgraphs." },
+    { "value": "208 novel", "in": ["README.md", "RESULTS.md"], "desc": "Discovery: candidate subgraphs surfaced from the background (top-500 by cluster score)." },
+    { "value": "2.27%", "in": ["README.md", "RESULTS.md"], "desc": "Suspicious base rate over the labeled subgraphs." },
+    { "value": "2,763", "in": ["README.md", "RESULTS.md"], "desc": "Labeled suspicious subgraphs." },
+    { "value": "119,047", "in": ["README.md", "RESULTS.md"], "desc": "Labeled licit subgraphs." },
+    { "value": "121,810", "in": ["README.md", "RESULTS.md"], "desc": "Total labeled connected components / subgraphs." },
+    { "value": "49,299,864", "in": ["README.md"], "desc": "Background clusters (paper Table 1)." },
+    { "value": "196,215,606", "in": ["README.md"], "desc": "Background edges (paper Table 1)." }
+  ]
+}

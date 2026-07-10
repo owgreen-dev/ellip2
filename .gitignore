@@ -12,6 +12,7 @@ artifacts/
 *.npy
 *.parquet
 _duckdb_tmp/
+demo_out/
 
 # Dev / agent scaffolding — not part of the published project
 plans/
