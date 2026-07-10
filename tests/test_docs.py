@@ -13,6 +13,8 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Required top-level section headers in README.md (T-031 acceptance criteria).
@@ -132,8 +134,15 @@ def test_no_stale_data_size_in_tracked_docs() -> None:
 
 
 def test_plan_has_superseded_banner() -> None:
-    """plan.md must note it is the original design doc, superseded by README/RESULTS."""
-    text = _read("plan.md")
+    """plan.md must note it is the original design doc, superseded by README/RESULTS.
+
+    plan.md is gitignored, so it is absent on a clean checkout (CI). Skip rather than fail:
+    this is a local-authoring hygiene check, and the module contract is tracked docs only.
+    """
+    plan = REPO_ROOT / "plan.md"
+    if not plan.is_file():
+        pytest.skip("plan.md is gitignored; absent on a clean checkout")
+    text = plan.read_text(encoding="utf-8")
     assert "README.md" in text and "RESULTS.md" in text, (
         "plan.md must point to README.md/RESULTS.md"
     )
