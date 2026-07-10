@@ -3,7 +3,7 @@
 # then every target runs through .venv/bin/python.
 PY := .venv/bin/python
 
-.PHONY: help install demo check-numbers verify test
+.PHONY: help install demo check-numbers verify test kaggle-push
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -24,3 +24,8 @@ verify:  ## Full gate: pytest + ruff + mypy (same as CI)
 
 test:  ## Run the test suite
 	$(PY) -m pytest -q
+
+# Requires `uv pip install kaggle` and an API token at ~/.kaggle/kaggle.json, and the `id`
+# in notebooks/kernel-metadata.json must start with YOUR Kaggle username. Never run in CI.
+kaggle-push:  ## Publish notebooks/ as a Kaggle notebook (needs kaggle CLI + ~/.kaggle/kaggle.json)
+	$(PY) -m kaggle kernels push -p notebooks/

@@ -14,12 +14,18 @@
 > SOTA by ~0.06 same-architecture), then **discovers** novel suspicious structures in a
 > **49.3M-cluster** unlabeled background at **121× lift** over random.
 
+![Discovered laundering subgraph bg25364052 — external senders (orange) fund an internal cluster (blue) that pays out to external receivers (green)](docs/examples/card_005_ccbg25364052.png)
+
+*A lead the pipeline **discovered** — not one it was handed. Score 1.0, surfaced from the
+49.3M-cluster unlabeled background. [Walk through it as an investigator
+would.](docs/examples/WALKTHROUGH.md)*
+
 A research pipeline for anti-money-laundering (AML) analysis of the **Elliptic2** Bitcoin
 dataset. It does two things on the 121,810 labeled connected components and the ~48.8M
 unlabeled background clusters:
 
 1. **Detect** suspicious *subgraphs* among the labeled connected components (supervised
-   border model, PR-AUC **0.942**).
+   border model, PR-AUC **0.911 ± 0.009**).
 2. **Discover** novel suspicious *subgraphs* among the ~48.8M *unlabeled* background
    clusters (per-cluster score → reachability carve → border re-score → ranked leads).
 
@@ -83,13 +89,11 @@ comparison, not identical-split — see [RESULTS.md](RESULTS.md) for caveats.
 held-out-recovery proxy eval re-found **5 of 276** held-out test-suspicious subgraphs
 (**1.8% recall**) against a random baseline of 0.0001 → **121× lift**.
 
-Each lead is rendered as an investigative card — a **border graph** (external *senders* →
-*internal* cluster → external *receivers*) plus an LLM typology and a corroborating exit
-path. Example (a novel lead the pipeline **discovered**, score 1.0):
-
-![Discovered fraud subgraph bg25364052 — senders (orange) fund an internal cluster (blue) that pays out to receivers (green)](docs/examples/card_005_ccbg25364052.png)
-
-More discovered-lead cards in [`docs/examples/`](docs/examples/).
+Each lead is rendered as an investigative card — the **border graph** at the top of this
+README (external *senders* → *internal* cluster → external *receivers*) plus an LLM typology
+and a corroborating exit path. More discovered-lead cards in
+[`docs/examples/`](docs/examples/); one narrated end-to-end in the
+[investigator walkthrough](docs/examples/WALKTHROUGH.md).
 
 **What fraud looks like** — a visual [demo](docs/examples/DEMO.md) over ~32K clusters (labeled
 suspicious / licit / background / discovered). The detector's score separates known fraud, and the
@@ -124,6 +128,23 @@ The takeaway isn't "this generalizes for free" — it's that the pipeline is bui
 *loudly* (leakage checks, recovery proxy, ranked human-in-the-loop leads) rather than
 quietly overfit a leaderboard.
 
+## What didn't work
+
+Three negative results, reported rather than buried — the second-best thing this repo
+produced after the detector itself:
+
+- **Cluster-level nnPU GNN — abandoned at PR-AUC 0.030.** The framing was simply wrong:
+  Elliptic2 labels *subgraphs*, not clusters, so a per-cluster positive-unlabeled objective
+  optimizes a target the dataset does not have. Reframing to a subgraph *border* model is
+  what bought the 30× jump — see [ADR-1](docs/decisions.md).
+- **Pooled-features HGBM — 0.286.** Mean/max pooling over a subgraph's internal nodes
+  destroys the boundary structure that carries the signal. What matters is who pays *into*
+  the subgraph and who gets paid *out* of it, which is exactly what pooling averages away.
+- **The per-cluster suspicion scorer never got good — test-member PR-AUC 0.127** — and it is
+  the gate that drives the entire discovery stage. Discovery works *despite* it, which is why
+  recall is 1.8% and not something respectable. That ceiling is the honest headline of the
+  discovery work, more so than the 121× lift.
+
 ## Pipeline
 
 ```
@@ -133,7 +154,7 @@ Stage 1  features      degree, flow-concentration, neighborhood, temporal, path-
    |                   -> cluster_features.parquet
    |
 Stage 2  detection     border model: DeepSets(senders) + DeepSets(receivers)
-   |                   + pooled internal node/edge features -> MLP (weighted BCE)  [PR-AUC 0.942]
+   |                   + pooled internal node/edge features -> MLP (weighted BCE)  [PR-AUC 0.911]
    |
 Stage 3  exit paths    bounded <=k-hop reachability to heuristic licit endpoints (corroboration)
    |
@@ -166,6 +187,10 @@ bash scripts/verify.sh   # or: make verify
 The `make demo` card is the same layout as the discovered-lead cards above (border graph +
 structural typology + exit-path corroboration + caveats) — see a full one narrated in the
 [investigator walkthrough](docs/examples/WALKTHROUGH.md).
+
+Prefer zero install? [`notebooks/ellip2_benchmark.ipynb`](notebooks/ellip2_benchmark.ipynb)
+runs the same keyless demo and the benchmark table in a browser; it is mirrored as a Kaggle
+notebook.
 
 ## Data
 
