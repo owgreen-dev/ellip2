@@ -25,7 +25,9 @@ verify:  ## Full gate: pytest + ruff + mypy (same as CI)
 test:  ## Run the test suite
 	$(PY) -m pytest -q
 
-# Requires `uv pip install kaggle` and an API token at ~/.kaggle/kaggle.json, and the `id`
+# Requires `uv pip install kaggle` (2.x). Reads a token from KAGGLE_API_TOKEN, or from a
+# gitignored .env (KAGGLE_API_TOKEN, else the new-style token stored as KAGGLE_KEY). The `id`
 # in notebooks/kernel-metadata.json must start with YOUR Kaggle username. Never run in CI.
-kaggle-push:  ## Publish notebooks/ as a Kaggle notebook (needs kaggle CLI + ~/.kaggle/kaggle.json)
-	$(PY) -m kaggle kernels push -p notebooks/
+kaggle-push:  ## Publish notebooks/ as a Kaggle notebook (needs kaggle 2.x + token in .env or KAGGLE_API_TOKEN)
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	KAGGLE_API_TOKEN="$${KAGGLE_API_TOKEN:-$$KAGGLE_KEY}" $(PY) -m kaggle kernels push -p notebooks/
