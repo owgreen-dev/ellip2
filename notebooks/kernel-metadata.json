@@ -1,6 +1,6 @@
 {
-  "id": "owgreen/ellip2-benchmark",
-  "title": "ellip2 — money-laundering subgraph detection on Elliptic2",
+  "id": "ogggreen/ellip2-benchmark",
+  "title": "ellip2 benchmark",
   "code_file": "ellip2_benchmark.ipynb",
   "language": "python",
   "kernel_type": "notebook",

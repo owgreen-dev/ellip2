@@ -189,8 +189,8 @@ structural typology + exit-path corroboration + caveats) — see a full one narr
 [investigator walkthrough](docs/examples/WALKTHROUGH.md).
 
 Prefer zero install? [`notebooks/ellip2_benchmark.ipynb`](notebooks/ellip2_benchmark.ipynb)
-runs the same keyless demo and the benchmark table in a browser; it is mirrored as a Kaggle
-notebook.
+runs the same keyless demo and the benchmark table in a browser — mirrored on Kaggle at
+[kaggle.com/code/ogggreen/ellip2-benchmark](https://www.kaggle.com/code/ogggreen/ellip2-benchmark).
 
 ## Data
 
